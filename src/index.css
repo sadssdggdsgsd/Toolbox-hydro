@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Leaflet Overrides */
+.leaflet-container {
+  background: #f1f5f9 !important;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid currentColor;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+input[type=range]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid currentColor;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Custom Scrollbar for Sidebar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* Sweetspot Marker Animations */
+@keyframes sweetspot-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.sweetspot-ping {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background: rgba(239, 68, 68, 0.4);
+  border-radius: 50%;
+  animation: sweetspot-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.sweetspot-dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 3px solid #0f172a;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.sweetspot-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+}
