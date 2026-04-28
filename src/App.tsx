@@ -257,14 +257,6 @@ export default function App() {
           })}
         </div>
 
-        <div className="p-6 bg-slate-50 border-t border-slate-200">
-           <button 
-             className="w-full py-3 bg-slate-900 text-white rounded-lg font-bold shadow-lg shadow-slate-200 active:scale-95 transition-transform uppercase tracking-widest text-xs"
-             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-           >
-             Uppdatera Analys
-           </button>
-        </div>
       </aside>
 
       {/* Main Map */}
