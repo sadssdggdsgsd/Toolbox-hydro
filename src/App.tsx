@@ -34,7 +34,7 @@ import { Source, ActiveAction, AnalysisResult } from './types';
 import { runAnalysis, getCostAt } from './analysis';
 
 // Basemap options
-type BasemapKey = 'orto' | 'relief' | 'standard' | 'jordart' | 'topo' | 'cyclosm';
+type BasemapKey = 'orto' | 'standard' | 'jordart' | 'cyclosm';
 
 const BASEMAPS: Record<BasemapKey, { 
   name: string; 
@@ -55,12 +55,6 @@ const BASEMAPS: Record<BasemapKey, {
     attribution: '&copy; OpenStreetMap',
     type: 'tile'
   },
-  topo: {
-    name: 'Topo',
-    url: 'https://{s}.tile.tracetrack.com/topo/{z}/{x}/{y}.png',
-    attribution: '&copy; Tracetrack',
-    type: 'tile'
-  },
   cyclosm: {
     name: 'CyclOSM',
     url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
@@ -69,16 +63,10 @@ const BASEMAPS: Record<BasemapKey, {
   },
   jordart: {
     name: 'Jordart',
-    url: 'https://resource.sgu.se/service/wms/130/jordarter-25-100-tusen',
+    url: '/sgu-wms',
     attribution: '&copy; SGU',
     type: 'wms',
-    layers: 'Jordart_ytlager,Jordart_grundlager'
-  },
-  relief: {
-    name: 'Höjd',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri',
-    type: 'tile'
+    layers: 'SE.GOV.SGU.JORD.GRUNDLAGER.25K,SE.GOV.SGU.JORD.YTLAGER.25K,SE.GOV.SGU.JORD.TACKNINGSKARTA.25K'
   }
 };
 
@@ -278,7 +266,7 @@ export default function App() {
             onClick={() => setPlacingTestLocation(!placingTestLocation)}
             className={`p-2 rounded-lg transition-all ${
               placingTestLocation 
-                ? 'bg-blue-500 text-white shadow-lg ring-2 ring-blue-200' 
+                ? 'bg-slate-700 text-white shadow-lg ring-2 ring-slate-200' 
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
             title="Placera provplats"
@@ -573,57 +561,56 @@ export default function App() {
                   iconAnchor: [12, 12]
                 })}
               >
-                <Tooltip permanent direction="bottom" offset={[0, 10]} className="!bg-indigo-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
+                <Tooltip permanent direction="bottom" offset={[0, 10]} className="!bg-slate-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
                   <span>Vald plats</span>
                 </Tooltip>
               </Marker>
             </>
           )}
 
-          {/* Sweet Spot Marker */}
           <Marker 
             position={analysis.bestLoc}
             icon={L.divIcon({
               className: 'custom-sweetspot',
               html: `
                 <div class="sweetspot-container">
-                  <div class="sweetspot-ping"></div>
+                  <div class="sweetspot-ping-inner"></div>
+                  <div class="sweetspot-ping-outer"></div>
                   <div class="sweetspot-dot"></div>
                 </div>
               `,
               iconSize: [30, 30],
               iconAnchor: [15, 15]
             })}
-          >
-            <Tooltip permanent direction="top" offset={[0, -15]} className="!bg-amber-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
-              <span>Sweet spot</span>
-            </Tooltip>
-          </Marker>
+          />
         </MapContainer>
 
         {/* Floating Legend Overlay */}
-        <div className="absolute top-6 right-6 z-[1000] w-72 bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-xl border border-white">
-          <div className="space-y-3 text-sm">
-             <div className="flex justify-between items-center bg-amber-50/50 p-2 rounded-lg border border-amber-100">
-                <div className="flex items-center gap-2">
-                   <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
-                   <span className="text-slate-700 font-bold italic underline decoration-amber-200">Sweet spot</span>
+        <div className="absolute top-6 right-6 z-[1000] w-72 bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white">
+          <div className="space-y-4 text-sm">
+             <div className="flex justify-between items-center bg-slate-900 p-3 rounded-2xl shadow-lg shadow-slate-200">
+                <div className="flex items-center gap-3">
+                   <div className="relative flex items-center justify-center">
+                     <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
+                     <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
+                   </div>
+                   <span className="text-white font-black tracking-tight text-[11px] uppercase">Sweet spot</span>
                 </div>
-                <span className="font-mono font-bold text-amber-600">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
+                <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
              </div>
 
              {testLocationCost !== null && (
                <motion.div 
-                 initial={{ opacity: 0, x: 20 }}
-                 animate={{ opacity: 1, x: 0 }}
-                 className="flex justify-between items-center bg-indigo-50/80 p-2 rounded-lg border-2 border-indigo-400 shadow-sm"
+                 initial={{ opacity: 0, y: 10 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-sm"
                >
-                  <div className="flex items-center gap-2">
-                     <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]" />
-                     <span className="text-slate-800 font-bold">Vald plats</span>
+                  <div className="flex items-center gap-3">
+                     <div className="w-2.5 h-2.5 rounded-full bg-slate-400 ring-2 ring-white" />
+                     <span className="text-slate-500 font-bold text-[11px] uppercase">Vald plats</span>
                   </div>
                   <div className="text-right">
-                    <div className="font-mono font-bold text-indigo-700">{Math.round(testLocationCost).toLocaleString('sv-SE')} kr</div>
+                    <div className="font-mono font-black text-slate-800">{Math.round(testLocationCost).toLocaleString('sv-SE')} kr</div>
                   </div>
                </motion.div>
              )}

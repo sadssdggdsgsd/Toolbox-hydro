@@ -17,6 +17,13 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
+      proxy: {
+        '/sgu-wms': {
+          target: 'https://resource.sgu.se',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/sgu-wms/, '/service/wms/130/jordarter-25-100-tusen'),
+        }
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
