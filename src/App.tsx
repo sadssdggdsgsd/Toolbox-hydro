@@ -441,19 +441,29 @@ export default function App() {
             }}
           />
 
-          {/* Analysis Contours */}
-          {basemap !== 'orto' && analysis.contourData.map((contour, i) => (
+          {/* Analysis Contours with Halo for maximum visibility */}
+          {analysis.contourData.map((contour, i) => (
              contour.polygons.map((ringSet, j) => (
-               <Polyline
-                 key={`contour-${i}-${j}`}
-                 positions={ringSet as any}
-                 pathOptions={{ 
-                   color: contour.color, 
-                   weight: i + 1, 
-                   opacity: basemap === 'standard' ? 0.8 : 0.4,
-                   dashArray: i === 0 ? '4, 4' : undefined
-                 }}
-               />
+               <React.Fragment key={`contour-group-${i}-${j}`}>
+                 {/* Halo / Shadow Line */}
+                 <Polyline
+                   positions={ringSet as any}
+                   pathOptions={{ 
+                     color: '#000', 
+                     weight: (i + 4) / 3, 
+                     opacity: 0.3,
+                   }}
+                 />
+                 {/* Main Colored Line */}
+                 <Polyline
+                   positions={ringSet as any}
+                   pathOptions={{ 
+                     color: contour.color, 
+                     weight: (i + 1.5) / 3, 
+                     opacity: 0.75
+                   }}
+                 />
+               </React.Fragment>
              ))
           ))}
 
