@@ -34,7 +34,7 @@ import { Source, ActiveAction, AnalysisResult } from './types';
 import { runAnalysis, getCostAt } from './analysis';
 
 // Basemap options
-type BasemapKey = 'orto' | 'relief' | 'standard' | 'jordart';
+type BasemapKey = 'orto' | 'relief' | 'standard' | 'jordart' | 'topo' | 'cyclosm';
 
 const BASEMAPS: Record<BasemapKey, { 
   name: string; 
@@ -44,28 +44,40 @@ const BASEMAPS: Record<BasemapKey, {
   layers?: string;
 }> = {
   orto: {
-    name: 'Ortofoto',
+    name: 'Orto',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri &mdash; Source: Esri',
-    type: 'tile'
-  },
-  jordart: {
-    name: 'Jordarter',
-    url: 'https://resource.sgu.se/service/wms/130/jordarter-25-100-tusen?',
-    attribution: '&copy; SGU',
-    type: 'wms',
-    layers: 'Jordart_grundlager'
-  },
-  relief: {
-    name: 'Höjd',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; Esri',
     type: 'tile'
   },
   standard: {
     name: 'Karta',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap',
+    type: 'tile'
+  },
+  topo: {
+    name: 'Topo',
+    url: 'https://{s}.tile.tracetrack.com/topo/{z}/{x}/{y}.png',
+    attribution: '&copy; Tracetrack',
+    type: 'tile'
+  },
+  cyclosm: {
+    name: 'CyclOSM',
+    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    attribution: '&copy; CyclOSM',
+    type: 'tile'
+  },
+  jordart: {
+    name: 'Jordart',
+    url: 'https://resource.sgu.se/service/wms/130/jordarter-25-100-tusen',
+    attribution: '&copy; SGU',
+    type: 'wms',
+    layers: 'Jordart_ytlager,Jordart_grundlager'
+  },
+  relief: {
+    name: 'Höjd',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri',
     type: 'tile'
   }
 };
@@ -374,7 +386,7 @@ export default function App() {
             <Layers className="w-3 h-3 text-slate-400" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bakgrundskarta</span>
           </div>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(Object.entries(BASEMAPS) as [keyof typeof BASEMAPS, typeof BASEMAPS['orto']][]).map(([key, config]) => (
               <button
                 key={key}
@@ -401,21 +413,33 @@ export default function App() {
           className="h-full w-full"
           zoomControl={false}
         >
-          {BASEMAPS[basemap].type === 'tile' ? (
+          {/* Basemap Rendering */}
+          {BASEMAPS[basemap].type === 'tile' && (
             <TileLayer
+              key={basemap}
               url={BASEMAPS[basemap].url}
               attribution={BASEMAPS[basemap].attribution}
             />
-          ) : (
-            <WMSTileLayer
-              url={BASEMAPS[basemap].url}
-              layers={BASEMAPS[basemap].layers || ''}
-              attribution={BASEMAPS[basemap].attribution}
-              format="image/png"
-              transparent={true}
-              version="1.1.1"
-              uppercase={true}
-            />
+          )}
+
+          {basemap === 'jordart' && (
+            <>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; OpenStreetMap contributors'
+              />
+              <WMSTileLayer
+                url={BASEMAPS.jordart.url}
+                layers={BASEMAPS.jordart.layers || ''}
+                attribution={BASEMAPS.jordart.attribution}
+                format="image/png"
+                transparent={true}
+                version="1.3.0"
+                uppercase={true}
+                opacity={0.8}
+                styles=""
+              />
+            </>
           )}
           
           <MapClickHandler 
