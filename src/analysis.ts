@@ -9,8 +9,35 @@ export function getDistance(p1: [number, number], p2: [number, number]): number 
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
+export function getCostAt(sources: Record<string, Source>, target: [number, number]): number {
+  const sourceList = Object.values(sources).filter(s => s.enabled);
+  let totalCost = 0;
+
+  for (const source of sourceList) {
+    let fixedDist = 0;
+    let currP = source.loc;
+    for (const node of source.nodes) {
+      fixedDist += getDistance(currP, node);
+      currP = node;
+    }
+    totalCost += (fixedDist + getDistance(currP, target)) * source.cost * source.weight;
+  }
+
+  return totalCost;
+}
+
 export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
-  const sourceList = Object.values(sources);
+  const sourceList = Object.values(sources).filter(s => s.enabled);
+  
+  if (sourceList.length === 0) {
+    return {
+      bestLoc: [62.5, 16.7], // Default to center if nothing enabled
+      minVal: 0,
+      contourData: [],
+      thresholds: { inner: 0, middle: 0, outer: 0 }
+    };
+  }
+
   const lats = sourceList.flatMap(s => [s.loc[0], ...s.nodes.map(n => n[0])]);
   const lons = sourceList.flatMap(s => [s.loc[1], ...s.nodes.map(n => n[1])]);
 

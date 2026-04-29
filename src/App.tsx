@@ -7,6 +7,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   MapContainer, 
   TileLayer, 
+  WMSTileLayer,
   Marker, 
   CircleMarker, 
   Polyline, 
@@ -23,11 +24,51 @@ import {
   Plus, 
   Lock, 
   RotateCcw,
-  Info
+  Info,
+  MapPin,
+  Layers,
+  Undo2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
-import { runAnalysis } from './analysis';
+import { runAnalysis, getCostAt } from './analysis';
+
+// Basemap options
+type BasemapKey = 'orto' | 'relief' | 'standard' | 'jordart';
+
+const BASEMAPS: Record<BasemapKey, { 
+  name: string; 
+  url: string; 
+  attribution: string;
+  type: 'tile' | 'wms';
+  layers?: string;
+}> = {
+  orto: {
+    name: 'Ortofoto',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri &mdash; Source: Esri',
+    type: 'tile'
+  },
+  jordart: {
+    name: 'Jordarter',
+    url: 'https://resource.sgu.se/service/wms/130/jordarter-25-100-tusen',
+    attribution: '&copy; SGU',
+    type: 'wms',
+    layers: 'Jordart_grundlager'
+  },
+  relief: {
+    name: 'Höjd',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri',
+    type: 'tile'
+  },
+  standard: {
+    name: 'Karta',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap',
+    type: 'tile'
+  }
+};
 
 // Fix for default marker icons in Leaflet + Vite
 // @ts-expect-error - images are handled by vite
@@ -47,26 +88,38 @@ const INITIAL_SOURCES: Record<string, Source> = {
   'Tekniskt vatten': {
     name: 'Tekniskt vatten',
     loc: [62.553345, 16.711533],
-    color: '#0ea5e9', // Changed to standard Tailwind cyan-500
+    color: '#0ea5e9', // cyan-500
     cost: 1500,
     weight: 1.0,
-    nodes: []
+    nodes: [],
+    enabled: true
   },
   'Vatten-VA': {
     name: 'Vatten-VA',
     loc: [62.518043, 16.759452],
-    color: '#22c55e', // Changed to standard Tailwind green-500
+    color: '#22c55e', // green-500
     cost: 1500,
     weight: 1.0,
-    nodes: []
+    nodes: [],
+    enabled: true
   },
   'El': {
     name: 'El',
     loc: [62.558574, 16.796531],
-    color: '#ef4444', // Changed to standard Tailwind red-500
+    color: '#ef4444', // red-500
     cost: 1500,
     weight: 1.0,
-    nodes: []
+    nodes: [],
+    enabled: true
+  },
+  'Väg': {
+    name: 'Väg',
+    loc: [62.525000, 16.705000],
+    color: '#8b5cf6', // violet-500
+    cost: 1500,
+    weight: 1.0,
+    nodes: [],
+    enabled: true
   }
 };
 
@@ -102,6 +155,16 @@ const getSourceTheme = (name: string) => {
         btnText: 'text-red-600',
         btnHover: 'hover:bg-red-100'
       };
+    case 'Väg':
+      return {
+        card: 'border-violet-100 bg-violet-50/30',
+        title: 'text-violet-700',
+        action: 'bg-violet-500',
+        track: 'bg-violet-200',
+        btnBorder: 'border-violet-200',
+        btnText: 'text-violet-600',
+        btnHover: 'hover:bg-violet-100'
+      };
     default:
       return {
         card: 'border-slate-100 bg-slate-50/30',
@@ -118,15 +181,21 @@ const getSourceTheme = (name: string) => {
 function MapClickHandler({ 
   activeSource, 
   activeAction, 
-  onAction 
+  placingTestLocation,
+  onAction,
+  onPlaceTest
 }: { 
   activeSource: string | null; 
   activeAction: ActiveAction;
+  placingTestLocation: boolean;
   onAction: (latlng: [number, number]) => void;
+  onPlaceTest: (latlng: [number, number]) => void;
 }) {
   useMapEvents({
     click(e) {
-      if (activeSource && activeAction) {
+      if (placingTestLocation) {
+        onPlaceTest([e.latlng.lat, e.latlng.lng]);
+      } else if (activeSource && activeAction) {
         onAction([e.latlng.lat, e.latlng.lng]);
       }
     },
@@ -138,8 +207,16 @@ export default function App() {
   const [sources, setSources] = useState<Record<string, Source>>(INITIAL_SOURCES);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
+  const [testLocation, setTestLocation] = useState<[number, number] | null>(null);
+  const [placingTestLocation, setPlacingTestLocation] = useState(false);
+  const [basemap, setBasemap] = useState<BasemapKey>('orto');
 
   const analysis = useMemo(() => runAnalysis(sources), [sources]);
+  
+  const testLocationCost = useMemo(() => {
+    if (!testLocation) return null;
+    return getCostAt(sources, testLocation);
+  }, [sources, testLocation]);
 
   const updateSource = (name: string, updates: Partial<Source>) => {
     setSources(prev => ({
@@ -148,31 +225,54 @@ export default function App() {
     }));
   };
 
-  const handleMapAction = (latlng: [number, number]) => {
-    if (!activeSource || !activeAction) return;
+  const addNode = (name: string, loc: [number, number]) => {
+    setSources(prev => ({
+      ...prev,
+      [name]: { ...prev[name], nodes: [...prev[name].nodes, loc] }
+    }));
+  };
 
-    if (activeAction === 'move') {
-      updateSource(activeSource, { loc: latlng });
-    } else if (activeAction === 'node') {
-      updateSource(activeSource, { 
-        nodes: [...sources[activeSource].nodes, latlng] 
-      });
-    }
+  const undoNode = (name: string) => {
+    setSources(prev => {
+      const source = prev[name];
+      if (source.nodes.length === 0) return prev;
+      return {
+        ...prev,
+        [name]: { ...source, nodes: source.nodes.slice(0, -1) }
+      };
+    });
   };
 
   const clearNodes = (name: string) => {
     updateSource(name, { nodes: [] });
   };
 
+  const handleMapAction = (latlng: [number, number]) => {
+    if (activeSource && activeAction === 'node') {
+      addNode(activeSource, latlng);
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-100 text-slate-800 overflow-hidden font-sans">
       {/* Sidebar */}
       <aside className="w-80 h-full border-r border-slate-200 bg-white flex flex-col z-10 shadow-lg">
-        <div className="p-6 border-b border-slate-100">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <Target className="w-6 h-6 text-slate-900" />
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Target className="w-5 h-5 text-slate-900" />
             Sweetspotfinder
           </h1>
+          <button 
+            onClick={() => setPlacingTestLocation(!placingTestLocation)}
+            className={`p-2 rounded-lg transition-all ${
+              placingTestLocation 
+                ? 'bg-blue-500 text-white shadow-lg ring-2 ring-blue-200' 
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+            title="Placera provplats"
+          >
+            <MapPin className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -185,52 +285,61 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 className={`p-4 rounded-xl border-2 transition-all ${theme.card} ${
                   activeSource === name ? 'ring-2 ring-offset-2 ring-slate-200' : ''
-                }`}
+                } ${!data.enabled ? 'opacity-50 saturate-0' : ''}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
-                  <button 
-                    onClick={() => clearNodes(name)}
-                    className={`text-[10px] bg-white px-2 py-1 border rounded font-bold transition-colors ${theme.btnBorder} ${theme.btnText} ${theme.btnHover}`}
-                  >
-                    RENSA
-                  </button>
+                <div className="flex items-center justify-between mb-3 border-b border-black/5 pb-2">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => updateSource(name, { enabled: !data.enabled })}
+                      className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${data.enabled ? theme.action : 'bg-slate-300'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${data.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                    <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
+                  </div>
                 </div>
 
                 {/* Tools */}
-                <div className="flex gap-1 mb-4">
-                  {(['lock', 'move', 'node'] as const).map((action) => {
-                    const isActive = (action === 'lock' && activeSource !== name) || 
-                                     (activeSource === name && activeAction === (action === 'lock' ? null : action));
-                    
-                    return (
-                      <button
-                        key={action}
-                        onClick={() => {
-                          if (action === 'lock') {
-                            setActiveSource(null);
-                            setActiveAction(null);
-                          } else {
-                            setActiveSource(name);
-                            setActiveAction(action as ActiveAction);
-                          }
-                        }}
-                        className={`flex-1 py-1.5 text-[10px] font-bold rounded uppercase tracking-tighter transition-all ${
-                          isActive
-                            ? `${theme.action} text-white shadow-sm scale-[1.02]`
-                            : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}
-                      >
-                        {action === 'lock' ? 'Lås' : action === 'move' ? 'Flytta' : 'Noder'}
-                      </button>
-                    );
-                  })}
-                </div>
+                {data.enabled && (
+                  <div className="flex gap-1 mb-4">
+                    <button
+                      onClick={() => {
+                        if (activeSource === name && activeAction === 'node') {
+                          setActiveSource(null);
+                          setActiveAction(null);
+                        } else {
+                          setActiveSource(name);
+                          setActiveAction('node');
+                        }
+                      }}
+                      className={`flex-[2] py-1 text-[9px] font-bold rounded uppercase tracking-tighter transition-all ${
+                        activeSource === name && activeAction === 'node'
+                          ? `${theme.action} text-white shadow-sm`
+                          : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      + Noder
+                    </button>
+                    <button 
+                      onClick={() => undoNode(name)}
+                      disabled={data.nodes.length === 0}
+                      className={`flex-1 py-1 text-[9px] bg-white border rounded font-bold transition-colors disabled:opacity-30 ${theme.btnBorder} ${theme.btnText} ${theme.btnHover}`}
+                    >
+                      <Undo2 className="w-3 h-3 mx-auto" />
+                    </button>
+                    <button 
+                      onClick={() => clearNodes(name)}
+                      className={`flex-1 py-1 text-[9px] bg-white border border-slate-200 rounded font-bold transition-colors text-red-500 hover:bg-red-50`}
+                    >
+                      Rensa
+                    </button>
+                  </div>
+                )}
 
                 {/* Inputs */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Kr/m</label>
+                    <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Kr/km</label>
                     <input 
                       type="number" 
                       value={data.cost}
@@ -238,23 +347,48 @@ export default function App() {
                       className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white font-medium focus:outline-none focus:ring-1 focus:ring-slate-300"
                     />
                   </div>
-                  <div style={{ color: data.color }}>
+                  <div>
                     <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Vikt</label>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.1"
-                      value={data.weight}
-                      onChange={(e) => updateSource(name, { weight: parseFloat(e.target.value) })}
-                      className={`w-full h-1.5 rounded-lg appearance-none mt-2 cursor-pointer ${theme.track}`}
-                      style={{ color: 'inherit' }}
-                    />
+                    <div className="flex items-center gap-2">
+                       <input 
+                        type="range" 
+                        min="0.1" 
+                        max="1" 
+                        step="0.1"
+                        value={data.weight}
+                        onChange={(e) => updateSource(name, { weight: parseFloat(e.target.value) })}
+                        className={`w-full h-1 my-2 rounded-lg appearance-none cursor-pointer ${theme.track}`}
+                      />
+                      <span className="text-[10px] font-mono font-bold text-slate-500">{data.weight.toFixed(1)}</span>
+                    </div>
                   </div>
                 </div>
               </motion.div>
             );
           })}
+        </div>
+
+        {/* Basemap Switcher */}
+        <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
+          <div className="flex items-center gap-2">
+            <Layers className="w-3 h-3 text-slate-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bakgrundskarta</span>
+          </div>
+          <div className="flex gap-1">
+            {(Object.entries(BASEMAPS) as [keyof typeof BASEMAPS, typeof BASEMAPS['orto']][]).map(([key, config]) => (
+              <button
+                key={key}
+                onClick={() => setBasemap(key)}
+                className={`flex-1 py-1.5 text-[9px] font-bold rounded transition-all ${
+                  basemap === key 
+                    ? 'bg-slate-800 text-white shadow-md' 
+                    : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {config.name}
+              </button>
+            ))}
+          </div>
         </div>
 
       </aside>
@@ -267,23 +401,35 @@ export default function App() {
           className="h-full w-full"
           zoomControl={false}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          />
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
-          />
+          {BASEMAPS[basemap].type === 'tile' ? (
+            <TileLayer
+              url={BASEMAPS[basemap].url}
+              attribution={BASEMAPS[basemap].attribution}
+            />
+          ) : (
+            <WMSTileLayer
+              url={BASEMAPS[basemap].url}
+              layers={BASEMAPS[basemap].layers || ''}
+              attribution={BASEMAPS[basemap].attribution}
+              format="image/png"
+              transparent={true}
+              version="1.1.1"
+            />
+          )}
           
           <MapClickHandler 
             activeSource={activeSource} 
             activeAction={activeAction} 
+            placingTestLocation={placingTestLocation}
             onAction={handleMapAction} 
+            onPlaceTest={(latlng) => {
+              setTestLocation(latlng);
+              setPlacingTestLocation(false);
+            }}
           />
 
           {/* Analysis Contours */}
-          {analysis.contourData.map((contour, i) => (
+          {basemap !== 'orto' && basemap !== 'jordart' && analysis.contourData.map((contour, i) => (
              contour.polygons.map((ringSet, j) => (
                <Polyline
                  key={`contour-${i}-${j}`}
@@ -291,7 +437,7 @@ export default function App() {
                  pathOptions={{ 
                    color: contour.color, 
                    weight: i + 1, 
-                   opacity: 0.8,
+                   opacity: basemap === 'standard' ? 0.8 : 0.4,
                    dashArray: i === 0 ? '4, 4' : undefined
                  }}
                />
@@ -303,40 +449,111 @@ export default function App() {
             const path = [data.loc, ...data.nodes, analysis.bestLoc];
             return (
               <React.Fragment key={name}>
-                <Polyline 
-                  positions={path} 
-                  pathOptions={{ 
-                    color: data.color, 
-                    weight: 2, 
-                    opacity: 0.6,
-                    dashArray: '8, 4'
-                  }} 
-                />
-                <CircleMarker 
-                  center={data.loc} 
-                  pathOptions={{ 
-                    fillColor: data.color, 
-                    fillOpacity: 1, 
-                    color: '#000', 
-                    weight: 2 
+                {data.enabled && (
+                  <Polyline 
+                    positions={path} 
+                    pathOptions={{ 
+                      color: data.color, 
+                      weight: 2, 
+                      opacity: 0.6,
+                      dashArray: '8, 4'
+                    }} 
+                  />
+                )}
+                <Marker 
+                  position={data.loc}
+                  draggable={true}
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const marker = e.target;
+                      const position = marker.getLatLng();
+                      updateSource(name, { loc: [position.lat, position.lng] });
+                    },
                   }}
-                  radius={10}
+                  icon={L.divIcon({
+                    className: 'source-marker',
+                    html: `<div style="background-color: ${data.color}; opacity: ${data.enabled ? 1 : 0}; width: 20px; height: 20px; border-radius: 50%; border: ${data.enabled ? '2px solid #000' : 'none'}; box-shadow: ${data.enabled ? '0 0 5px rgba(0,0,0,0.2)' : 'none'}; pointer-events: ${data.enabled ? 'auto' : 'none'};"></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                  })}
                 >
-                  <Tooltip permanent direction="top" offset={[0, -10]} className="!bg-black/70 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
-                    <span>{name}</span>
-                  </Tooltip>
-                </CircleMarker>
+                  {data.enabled && (
+                    <Tooltip permanent direction="top" offset={[0, -10]} className={`!bg-black/70 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none`}>
+                      <span>{name}</span>
+                    </Tooltip>
+                  )}
+                </Marker>
                 {data.nodes.map((node, ni) => (
-                  <CircleMarker 
+                  <Marker 
                     key={`${name}-node-${ni}`}
-                    center={node} 
-                    pathOptions={{ fillColor: '#fff', fillOpacity: 0.5, color: '#000', weight: 1 }}
-                    radius={5}
+                    position={node} 
+                    draggable={true}
+                    eventHandlers={{
+                      dragend: (e) => {
+                        const marker = e.target;
+                        const position = marker.getLatLng();
+                        const newNodes = [...data.nodes];
+                        newNodes[ni] = [position.lat, position.lng];
+                        updateSource(name, { nodes: newNodes });
+                      },
+                    }}
+                    icon={L.divIcon({
+                      className: 'node-marker',
+                      html: `<div style="background-color: #fff; opacity: ${data.enabled ? 0.8 : 0.1}; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #000;"></div>`,
+                      iconSize: [10, 10],
+                      iconAnchor: [5, 5]
+                    })}
                   />
                 ))}
               </React.Fragment>
             );
           })}
+
+          {/* Test Location Marker */}
+          {testLocation && (
+            <>
+              {(Object.entries(sources) as [string, Source][]).map(([name, data]) => {
+                const path = [data.loc, ...data.nodes, testLocation];
+                return data.enabled ? (
+                  <Polyline 
+                    key={`test-path-${name}`}
+                    positions={path} 
+                    pathOptions={{ 
+                      color: data.color, 
+                      weight: 1, 
+                      opacity: 0.3,
+                      dashArray: '4, 4'
+                    }} 
+                  />
+                ) : null;
+              })}
+              <Marker 
+                position={testLocation}
+                draggable
+                eventHandlers={{
+                  dragend: (e) => {
+                    const marker = e.target;
+                    const position = marker.getLatLng();
+                    setTestLocation([position.lat, position.lng]);
+                  },
+                }}
+                icon={L.divIcon({
+                  className: 'custom-test-location',
+                  html: `
+                    <div class="test-location-container">
+                      <div class="test-location-dot"></div>
+                    </div>
+                  `,
+                  iconSize: [24, 24],
+                  iconAnchor: [12, 12]
+                })}
+              >
+                <Tooltip permanent direction="bottom" offset={[0, 10]} className="!bg-indigo-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
+                  <span>Vald plats</span>
+                </Tooltip>
+              </Marker>
+            </>
+          )}
 
           {/* Sweet Spot Marker */}
           <Marker 
@@ -352,19 +569,39 @@ export default function App() {
               iconSize: [30, 30],
               iconAnchor: [15, 15]
             })}
-          />
+          >
+            <Tooltip permanent direction="top" offset={[0, -15]} className="!bg-amber-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
+              <span>Sweet spot</span>
+            </Tooltip>
+          </Marker>
         </MapContainer>
 
         {/* Floating Legend Overlay */}
         <div className="absolute top-6 right-6 z-[1000] w-72 bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-xl border border-white">
           <div className="space-y-3 text-sm">
-             <div className="flex justify-between items-center bg-green-50/50 p-2 rounded-lg border border-green-100">
+             <div className="flex justify-between items-center bg-amber-50/50 p-2 rounded-lg border border-amber-100">
                 <div className="flex items-center gap-2">
-                   <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                   <span className="text-slate-700 font-bold">Sweet spot</span>
+                   <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
+                   <span className="text-slate-700 font-bold italic underline decoration-amber-200">Sweet spot</span>
                 </div>
-                <span className="font-mono font-bold text-green-600">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
+                <span className="font-mono font-bold text-amber-600">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
              </div>
+
+             {testLocationCost !== null && (
+               <motion.div 
+                 initial={{ opacity: 0, x: 20 }}
+                 animate={{ opacity: 1, x: 0 }}
+                 className="flex justify-between items-center bg-indigo-50/80 p-2 rounded-lg border-2 border-indigo-400 shadow-sm"
+               >
+                  <div className="flex items-center gap-2">
+                     <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]" />
+                     <span className="text-slate-800 font-bold">Vald plats</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-indigo-700">{Math.round(testLocationCost).toLocaleString('sv-SE')} kr</div>
+                  </div>
+               </motion.div>
+             )}
              
              <div className="pt-1 space-y-2">
                 {[

@@ -10,6 +10,7 @@ export interface Source {
   cost: number;
   weight: number;
   nodes: [number, number][];
+  enabled: boolean;
 }
 
 export type ActiveAction = 'move' | 'node' | null;
