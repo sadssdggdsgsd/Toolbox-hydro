@@ -51,7 +51,7 @@ const BASEMAPS: Record<BasemapKey, {
   },
   jordart: {
     name: 'Jordarter',
-    url: 'https://resource.sgu.se/service/wms/130/jordarter-25-100-tusen',
+    url: 'https://resource.sgu.se/service/wms/130/jordarter-25-100-tusen?',
     attribution: '&copy; SGU',
     type: 'wms',
     layers: 'Jordart_grundlager'
@@ -414,6 +414,7 @@ export default function App() {
               format="image/png"
               transparent={true}
               version="1.1.1"
+              uppercase={true}
             />
           )}
           
@@ -429,7 +430,7 @@ export default function App() {
           />
 
           {/* Analysis Contours */}
-          {basemap !== 'orto' && basemap !== 'jordart' && analysis.contourData.map((contour, i) => (
+          {basemap !== 'orto' && analysis.contourData.map((contour, i) => (
              contour.polygons.map((ringSet, j) => (
                <Polyline
                  key={`contour-${i}-${j}`}
