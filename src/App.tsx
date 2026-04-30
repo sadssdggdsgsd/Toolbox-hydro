@@ -34,7 +34,7 @@ import { Source, ActiveAction, AnalysisResult } from './types';
 import { runAnalysis, getCostAt } from './analysis';
 
 // Basemap options
-type BasemapKey = 'orto' | 'standard' | 'jordart' | 'cyclosm';
+type BasemapKey = 'orto' | 'standard' | 'cyclosm';
 
 const BASEMAPS: Record<BasemapKey, { 
   name: string; 
@@ -60,13 +60,6 @@ const BASEMAPS: Record<BasemapKey, {
     url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
     attribution: '&copy; CyclOSM',
     type: 'tile'
-  },
-  jordart: {
-    name: 'Jordart',
-    url: '/sgu-wms',
-    attribution: '&copy; SGU',
-    type: 'wms',
-    layers: 'SE.GOV.SGU.JORD.GRUNDLAGER.25K,SE.GOV.SGU.JORD.YTLAGER.25K,SE.GOV.SGU.JORD.TACKNINGSKARTA.25K'
   }
 };
 
@@ -213,7 +206,7 @@ export default function App() {
 
   const analysis = useMemo(() => runAnalysis(sources), [sources]);
   
-  const testLocationCost = useMemo(() => {
+  const testLocationResult = useMemo(() => {
     if (!testLocation) return null;
     return getCostAt(sources, testLocation);
   }, [sources, testLocation]);
@@ -262,17 +255,30 @@ export default function App() {
             <Target className="w-5 h-5 text-slate-900" />
             Sweetspotfinder
           </h1>
-          <button 
-            onClick={() => setPlacingTestLocation(!placingTestLocation)}
-            className={`p-2 rounded-lg transition-all ${
-              placingTestLocation 
-                ? 'bg-slate-700 text-white shadow-lg ring-2 ring-slate-200' 
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-            title="Placera provplats"
-          >
-            <MapPin className="w-5 h-5" />
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setPlacingTestLocation(!placingTestLocation)}
+              className={`p-2 rounded-lg transition-all ${
+                placingTestLocation 
+                  ? 'text-white shadow-lg ring-2 ring-slate-100' 
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              style={{ backgroundColor: placingTestLocation ? '#4778A5' : undefined }}
+              title="Välj plats"
+            >
+              <MapPin className="w-5 h-5" />
+            </button>
+            {testLocation && (
+              <button 
+                onClick={() => setTestLocation(null)}
+                className="p-2 rounded-lg text-white transition-all shadow-md hover:bg-opacity-90"
+                style={{ backgroundColor: '#A76A6A' }}
+                title="Stäng av vald plats"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -339,10 +345,11 @@ export default function App() {
                 {/* Inputs */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Kr/km</label>
+                    <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Kr/m</label>
                     <input 
                       type="number" 
                       value={data.cost}
+                      step="500"
                       onChange={(e) => updateSource(name, { cost: parseInt(e.target.value) || 0 })}
                       className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white font-medium focus:outline-none focus:ring-1 focus:ring-slate-300"
                     />
@@ -408,26 +415,6 @@ export default function App() {
               url={BASEMAPS[basemap].url}
               attribution={BASEMAPS[basemap].attribution}
             />
-          )}
-
-          {basemap === 'jordart' && (
-            <>
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap contributors'
-              />
-              <WMSTileLayer
-                url={BASEMAPS.jordart.url}
-                layers={BASEMAPS.jordart.layers || ''}
-                attribution={BASEMAPS.jordart.attribution}
-                format="image/png"
-                transparent={true}
-                version="1.3.0"
-                uppercase={true}
-                opacity={0.8}
-                styles=""
-              />
-            </>
           )}
           
           <MapClickHandler 
@@ -598,32 +585,53 @@ export default function App() {
         {/* Floating Legend Overlay */}
         <div className="absolute top-6 right-6 z-[1000] w-72 bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white">
           <div className="space-y-4 text-sm">
-             <div className="flex justify-between items-center bg-slate-900 p-3 rounded-2xl shadow-lg shadow-slate-200">
-                <div className="flex items-center gap-3">
-                   <div className="relative flex items-center justify-center">
-                     <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
-                     <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
-                   </div>
-                   <span className="text-white font-black tracking-tight text-[11px] uppercase">Sweet spot</span>
-                </div>
-                <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
-             </div>
-
-             {testLocationCost !== null && (
-               <motion.div 
-                 initial={{ opacity: 0, y: 10 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-sm"
-               >
+              <div className="bg-slate-900 p-3 rounded-2xl shadow-lg shadow-slate-200 border-l-4" style={{ borderColor: '#393F4C' }}>
+                <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-3">
-                     <div className="w-2.5 h-2.5 rounded-full bg-slate-400 ring-2 ring-white" />
-                     <span className="text-slate-500 font-bold text-[11px] uppercase">Vald plats</span>
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
+                      <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
+                    </div>
+                    <span className="text-white font-black tracking-tight text-[11px] uppercase">Sweet spot</span>
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono font-black text-slate-800">{Math.round(testLocationCost).toLocaleString('sv-SE')} kr</div>
+                  <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
+                </div>
+                <div className="space-y-1 px-8">
+                  {Object.entries(analysis.breakdown).map(([name, val]) => (
+                    <div key={name} className="flex justify-between text-[10px] text-white/40">
+                      <span className="font-medium">{name}</span>
+                      <span className="font-mono">{Math.round(val).toLocaleString('sv-SE')} kr</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {testLocationResult !== null && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-sm border-l-4"
+                  style={{ borderColor: '#4778A5' }}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full ring-2 ring-white" style={{ backgroundColor: '#4778A5' }} />
+                      <span className="text-slate-500 font-bold text-[11px] uppercase">Vald plats</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-black text-slate-800">{Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr</div>
+                    </div>
                   </div>
-               </motion.div>
-             )}
+                  <div className="space-y-1 px-5">
+                    {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
+                      <div key={name} className="flex justify-between text-[10px] text-slate-400">
+                        <span className="font-medium">{name}</span>
+                        <span className="font-mono">{Math.round(val).toLocaleString('sv-SE')} kr</span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
              
              <div className="pt-1 space-y-2">
                 {[

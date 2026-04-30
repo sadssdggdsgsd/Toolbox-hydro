@@ -15,9 +15,14 @@ export interface Source {
 
 export type ActiveAction = 'move' | 'node' | null;
 
+export interface CostBreakdown {
+  [sourceName: string]: number;
+}
+
 export interface AnalysisResult {
   bestLoc: [number, number];
   minVal: number;
+  breakdown: CostBreakdown;
   contourData: {
     level: number;
     polygons: [number, number][][][];

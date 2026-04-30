@@ -1,5 +1,5 @@
 import * as d3 from 'd3-contour';
-import { Source, AnalysisResult } from './types';
+import { Source, AnalysisResult, CostBreakdown } from './types';
 
 const EARTH_RADIUS = 6371000; // meters
 
@@ -9,9 +9,10 @@ export function getDistance(p1: [number, number], p2: [number, number]): number 
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
-export function getCostAt(sources: Record<string, Source>, target: [number, number]): number {
+export function getCostAt(sources: Record<string, Source>, target: [number, number]): { total: number; breakdown: CostBreakdown } {
   const sourceList = Object.values(sources).filter(s => s.enabled);
   let totalCost = 0;
+  const breakdown: CostBreakdown = {};
 
   for (const source of sourceList) {
     let fixedDist = 0;
@@ -20,10 +21,12 @@ export function getCostAt(sources: Record<string, Source>, target: [number, numb
       fixedDist += getDistance(currP, node);
       currP = node;
     }
-    totalCost += (fixedDist + getDistance(currP, target)) * source.cost * source.weight;
+    const sourceCost = (fixedDist + getDistance(currP, target)) * source.cost * source.weight;
+    totalCost += sourceCost;
+    breakdown[source.name] = sourceCost;
   }
 
-  return totalCost;
+  return { total: totalCost, breakdown };
 }
 
 export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
@@ -33,6 +36,7 @@ export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
     return {
       bestLoc: [62.5, 16.7], // Default to center if nothing enabled
       minVal: 0,
+      breakdown: {},
       contourData: [],
       thresholds: { inner: 0, middle: 0, outer: 0 }
     };
@@ -116,9 +120,13 @@ export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
     )
   }));
 
+  const bestLoc: [number, number] = [getLat(bestIdx[0]), getLon(bestIdx[1])];
+  const { breakdown } = getCostAt(sources, bestLoc);
+
   return {
-    bestLoc: [getLat(bestIdx[0]), getLon(bestIdx[1])],
+    bestLoc,
     minVal: minCost,
+    breakdown,
     contourData,
     thresholds: {
       inner: -p999,

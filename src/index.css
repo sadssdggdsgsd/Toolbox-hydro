@@ -62,7 +62,7 @@ input[type=range]::-moz-range-thumb {
   position: absolute;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(57, 63, 76, 0.4);
   border-radius: 50%;
   animation: sweetspot-pulse-inner 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
@@ -71,7 +71,7 @@ input[type=range]::-moz-range-thumb {
   position: absolute;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(15, 23, 42, 0.2);
+  border: 1px solid rgba(57, 63, 76, 0.2);
   border-radius: 50%;
   animation: sweetspot-pulse-outer 3s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
@@ -81,7 +81,7 @@ input[type=range]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   background: white;
-  border: 4px solid #0f172a; /* slate-900 */
+  border: 4px solid #393F4C;
   border-radius: 50%;
   box-shadow: 0 0 0 2px white, 0 4px 15px rgba(0,0,0,0.3);
   display: flex;
@@ -93,7 +93,7 @@ input[type=range]::-moz-range-thumb {
   content: '';
   width: 2px;
   height: 2px;
-  background: #0f172a;
+  background: #393F4C;
   border-radius: 50%;
 }
 
@@ -117,7 +117,7 @@ input[type=range]::-moz-range-thumb {
 .test-location-dot {
   width: 14px;
   height: 14px;
-  background: #94a3b8; /* slate-400 */
+  background: #4778A5;
   border: 2px solid white;
   border-radius: 50%;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
