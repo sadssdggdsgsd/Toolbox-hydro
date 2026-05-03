@@ -596,11 +596,11 @@ export default function App() {
                   </div>
                   <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
                 </div>
-                <div className="space-y-1 px-8">
+                <div className="space-y-1 pl-10 pr-3">
                   {Object.entries(analysis.breakdown).map(([name, val]) => (
-                    <div key={name} className="flex justify-between text-[10px] text-white/40">
+                    <div key={name} className="flex justify-between items-baseline text-[10px] text-white/40">
                       <span className="font-medium">{name}</span>
-                      <span className="font-mono">{Math.round(val).toLocaleString('sv-SE')} kr</span>
+                      <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val).toLocaleString('sv-SE')} kr</span>
                     </div>
                   ))}
                 </div>
@@ -622,11 +622,11 @@ export default function App() {
                       <div className="font-mono font-black text-slate-800">{Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr</div>
                     </div>
                   </div>
-                  <div className="space-y-1 px-5">
+                  <div className="space-y-1 pl-[34px] pr-3">
                     {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
-                      <div key={name} className="flex justify-between text-[10px] text-slate-400">
+                      <div key={name} className="flex justify-between items-baseline text-[10px] text-slate-400">
                         <span className="font-medium">{name}</span>
-                        <span className="font-mono">{Math.round(val).toLocaleString('sv-SE')} kr</span>
+                        <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val).toLocaleString('sv-SE')} kr</span>
                       </div>
                     ))}
                   </div>
