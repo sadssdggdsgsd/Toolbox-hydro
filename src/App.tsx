@@ -16,22 +16,20 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import { 
-  Droplet, 
-  Zap, 
-  Waves, 
-  Target, 
-  Move, 
   Plus, 
-  Lock, 
+  Target,
   RotateCcw,
   Info,
   MapPin,
   Layers,
-  Undo2
+  Undo2,
+  X,
+  Move,
+  MousePointer2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
-import { runAnalysis, getCostAt } from './analysis';
+import { runAnalysis, getCostAt, getDistance } from './analysis';
 
 // Basemap options
 type BasemapKey = 'orto' | 'standard' | 'cyclosm';
@@ -80,7 +78,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const INITIAL_SOURCES: Record<string, Source> = {
   'Tekniskt vatten': {
     name: 'Tekniskt vatten',
-    loc: [62.553345, 16.711533],
+    loc: [62.559033, 16.791220],
     color: '#0ea5e9', // cyan-500
     cost: 1500,
     weight: 1.0,
@@ -89,7 +87,7 @@ const INITIAL_SOURCES: Record<string, Source> = {
   },
   'Vatten-VA': {
     name: 'Vatten-VA',
-    loc: [62.518043, 16.759452],
+    loc: [62.520967, 16.791220],
     color: '#22c55e', // green-500
     cost: 1500,
     weight: 1.0,
@@ -98,7 +96,7 @@ const INITIAL_SOURCES: Record<string, Source> = {
   },
   'El': {
     name: 'El',
-    loc: [62.558574, 16.796531],
+    loc: [62.520967, 16.708780],
     color: '#ef4444', // red-500
     cost: 1500,
     weight: 1.0,
@@ -107,7 +105,7 @@ const INITIAL_SOURCES: Record<string, Source> = {
   },
   'Väg': {
     name: 'Väg',
-    loc: [62.525000, 16.705000],
+    loc: [62.559033, 16.708780],
     color: '#8b5cf6', // violet-500
     cost: 1500,
     weight: 1.0,
@@ -175,19 +173,25 @@ function MapClickHandler({
   activeSource, 
   activeAction, 
   placingTestLocation,
+  isRelocatingSweetSpot,
   onAction,
-  onPlaceTest
+  onPlaceTest,
+  onRelocate
 }: { 
   activeSource: string | null; 
   activeAction: ActiveAction;
   placingTestLocation: boolean;
+  isRelocatingSweetSpot: boolean;
   onAction: (latlng: [number, number]) => void;
   onPlaceTest: (latlng: [number, number]) => void;
+  onRelocate: (latlng: [number, number]) => void;
 }) {
   useMapEvents({
     click(e) {
       if (placingTestLocation) {
         onPlaceTest([e.latlng.lat, e.latlng.lng]);
+      } else if (isRelocatingSweetSpot) {
+        onRelocate([e.latlng.lat, e.latlng.lng]);
       } else if (activeSource && activeAction) {
         onAction([e.latlng.lat, e.latlng.lng]);
       }
@@ -203,9 +207,27 @@ export default function App() {
   const [testLocation, setTestLocation] = useState<[number, number] | null>(null);
   const [placingTestLocation, setPlacingTestLocation] = useState(false);
   const [basemap, setBasemap] = useState<BasemapKey>('orto');
+  
+  // Relocation state
+  const [isRelocatingSweetSpot, setIsRelocatingSweetSpot] = useState(false);
 
   const analysis = useMemo(() => runAnalysis(sources), [sources]);
-  
+
+  const sourceDistances = useMemo(() => {
+    const dists: Record<string, number> = {};
+    (Object.entries(sources) as [string, Source][]).forEach(([name, data]) => {
+      let dist = 0;
+      let curr = data.loc;
+      for (const node of data.nodes) {
+        dist += getDistance(curr, node);
+        curr = node;
+      }
+      dist += getDistance(curr, analysis.bestLoc);
+      dists[name] = dist;
+    });
+    return dists;
+  }, [sources, analysis.bestLoc]);
+
   const testLocationResult = useMemo(() => {
     if (!testLocation) return null;
     return getCostAt(sources, testLocation);
@@ -246,38 +268,80 @@ export default function App() {
     }
   };
 
+  const handleRelocate = (latlng: [number, number]) => {
+    const currentSweetSpot = analysis.bestLoc;
+    const deltaLat = latlng[0] - currentSweetSpot[0];
+    const deltaLon = latlng[1] - currentSweetSpot[1];
+
+    setSources(prev => {
+      const updatedSources: Record<string, Source> = {};
+      (Object.entries(prev) as [string, Source][]).forEach(([name, source]) => {
+        updatedSources[name] = {
+          ...source,
+          loc: [source.loc[0] + deltaLat, source.loc[1] + deltaLon],
+          nodes: source.nodes.map(node => [node[0] + deltaLat, node[1] + deltaLon])
+        };
+      });
+      return updatedSources;
+    });
+    setIsRelocatingSweetSpot(false);
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-100 text-slate-800 overflow-hidden font-sans">
       {/* Sidebar */}
       <aside className="w-80 h-full border-r border-slate-200 bg-white flex flex-col z-10 shadow-lg">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <Target className="w-5 h-5 text-slate-900" />
-            Sweetspotfinder
-          </h1>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setPlacingTestLocation(!placingTestLocation)}
-              className={`p-2 rounded-lg transition-all ${
-                placingTestLocation 
-                  ? 'text-white shadow-lg ring-2 ring-slate-100' 
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-              style={{ backgroundColor: placingTestLocation ? '#4778A5' : undefined }}
-              title="Välj plats"
-            >
-              <MapPin className="w-5 h-5" />
-            </button>
-            {testLocation && (
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              Sweetspotfinder
+            </h1>
+            <div className="flex gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
+              {/* Relocate Sweet Spot Button */}
               <button 
-                onClick={() => setTestLocation(null)}
-                className="p-2 rounded-lg text-white transition-all shadow-md hover:bg-opacity-90"
-                style={{ backgroundColor: '#A76A6A' }}
-                title="Stäng av vald plats"
+                onClick={() => {
+                  setIsRelocatingSweetSpot(!isRelocatingSweetSpot);
+                  setPlacingTestLocation(false);
+                }}
+                className={`p-2 rounded-xl transition-all group relative ${
+                  isRelocatingSweetSpot 
+                    ? 'bg-[#393F4C] text-white shadow-lg ring-2 ring-slate-200' 
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
+                }`}
+                title="Flytta sweet spot"
               >
-                <RotateCcw className="w-5 h-5" />
+                <Target className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
               </button>
-            )}
+
+              {/* Manual/Test Location Button */}
+              <button 
+                onClick={() => {
+                  if (testLocation || placingTestLocation) {
+                    setTestLocation(null);
+                    setPlacingTestLocation(false);
+                  } else {
+                    setPlacingTestLocation(true);
+                    setIsRelocatingSweetSpot(false);
+                  }
+                }}
+                className={`p-2 rounded-xl transition-all group relative ${
+                  (testLocation || placingTestLocation)
+                    ? 'bg-red-500 text-white shadow-lg ring-2 ring-red-100' 
+                    : 'text-slate-400 hover:text-[#4778A5] hover:bg-white hover:shadow-sm'
+                }`}
+                style={{ 
+                  backgroundColor: (!testLocation && !placingTestLocation) ? undefined : undefined,
+                  color: (!testLocation && !placingTestLocation) ? undefined : undefined 
+                }}
+                title={testLocation || placingTestLocation ? "Rensa vald plats" : "Välj plats manuellt"}
+              >
+                {testLocation || placingTestLocation ? (
+                  <Undo2 className="w-5 h-5" />
+                ) : (
+                  <MapPin className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -303,6 +367,13 @@ export default function App() {
                     </button>
                     <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
                   </div>
+                  {data.enabled && (
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-mono font-black text-slate-400 bg-white/50 px-1.5 py-0.5 rounded border border-black/5">
+                        {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tools */}
@@ -421,11 +492,13 @@ export default function App() {
             activeSource={activeSource} 
             activeAction={activeAction} 
             placingTestLocation={placingTestLocation}
+            isRelocatingSweetSpot={isRelocatingSweetSpot}
             onAction={handleMapAction} 
             onPlaceTest={(latlng) => {
               setTestLocation(latlng);
               setPlacingTestLocation(false);
             }}
+            onRelocate={handleRelocate}
           />
 
           {/* Analysis Contours with Halo for maximum visibility */}
@@ -600,7 +673,7 @@ export default function App() {
                   {Object.entries(analysis.breakdown).map(([name, val]) => (
                     <div key={name} className="flex justify-between items-baseline text-[10px] text-white/40">
                       <span className="font-medium">{name}</span>
-                      <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val).toLocaleString('sv-SE')} kr</span>
+                      <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val as number).toLocaleString('sv-SE')} kr</span>
                     </div>
                   ))}
                 </div>
@@ -626,7 +699,7 @@ export default function App() {
                     {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
                       <div key={name} className="flex justify-between items-baseline text-[10px] text-slate-400">
                         <span className="font-medium">{name}</span>
-                        <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val).toLocaleString('sv-SE')} kr</span>
+                        <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val as number).toLocaleString('sv-SE')} kr</span>
                       </div>
                     ))}
                   </div>
@@ -655,11 +728,29 @@ export default function App() {
           </div>
         </div>
 
-        {/* Map Controls Mockup */}
-        <div className="absolute bottom-8 right-8 z-[1000] flex flex-col gap-2">
-          <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100">+</button>
-          <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100">-</button>
+        {/* Map Controls */}
+        <div className="absolute bottom-8 right-8 z-[1000] flex flex-col gap-2 items-end">
+          <div className="flex flex-col gap-2">
+            <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100">+</button>
+            <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100">-</button>
+          </div>
         </div>
+
+        <AnimatePresence>
+          {isRelocatingSweetSpot && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute top-8 left-1/2 -translate-x-1/2 z-[2000] pointer-events-none"
+            >
+              <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3">
+                <MousePointer2 className="w-4 h-4 text-indigo-400 animate-bounce" />
+                <span className="text-xs font-medium tracking-wide">Klicka på kartan för att placera den nya Sweet Spoten</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
