@@ -468,7 +468,7 @@ export default function App() {
                                 initial={{ opacity: 0, y: 5, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                                className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-100 z-[100] overflow-hidden"
+                                className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-100 z-[100] overflow-hidden"
                               >
                                 {COST_TEMPLATES[name].map((tpl, i) => (
                                   <button
