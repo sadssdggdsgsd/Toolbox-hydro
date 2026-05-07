@@ -11,6 +11,7 @@ import {
   Marker, 
   CircleMarker, 
   Polyline, 
+  Polygon,
   Tooltip, 
   useMapEvents 
 } from 'react-leaflet';
@@ -25,7 +26,8 @@ import {
   Undo2,
   X,
   Move,
-  MousePointer2
+  MousePointer2,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
@@ -112,6 +114,31 @@ const INITIAL_SOURCES: Record<string, Source> = {
     nodes: [],
     enabled: true
   }
+};
+
+const COST_TEMPLATES: Record<string, { label: string; value: number }[]> = {
+  'El': [
+    { label: '1 – 10 MW (1 200 kr/m)', value: 1200 },
+    { label: '10 – 50 MW (8 000 kr/m)', value: 8000 },
+    { label: '50 – 200 MW (20 000 kr/m)', value: 20000 },
+    { label: '200 – 1000 MW (30 000 kr/m)', value: 30000 },
+  ],
+  'Väg': [
+    { label: 'Enkel industriväg (20 000 kr/m)', value: 20000 },
+    { label: 'Tung industriväg (50 000 kr/m)', value: 50000 },
+    { label: 'Logistikled (100 000 kr/m)', value: 100000 },
+  ],
+  'Vatten-VA': [
+    { label: 'DN 110 – 160 mm (5 000 kr/m)', value: 5000 },
+    { label: 'DN 200 – 250 mm (10 000 kr/m)', value: 10000 },
+    { label: 'DN 315 – 450 mm (15 000 kr/m)', value: 15000 },
+    { label: 'DN 500 – 800+ mm (30 000 kr/m)', value: 30000 },
+  ],
+  'Tekniskt vatten': [
+    { label: '< 200 m³/dygn (3 000 kr/m)', value: 3000 },
+    { label: '200 – 1 000 m³/dygn (7 000 kr/m)', value: 7000 },
+    { label: '1 000 – 4 000 m³/dygn (15 000 kr/m)', value: 15000 },
+  ]
 };
 
 const getSourceTheme = (name: string) => {
@@ -207,6 +234,7 @@ export default function App() {
   const [testLocation, setTestLocation] = useState<[number, number] | null>(null);
   const [placingTestLocation, setPlacingTestLocation] = useState(false);
   const [basemap, setBasemap] = useState<BasemapKey>('orto');
+  const [openTemplateMenu, setOpenTemplateMenu] = useState<string | null>(null);
   
   // Visibility states
   const [showSweetSpot, setShowSweetSpot] = useState(true);
@@ -287,6 +315,11 @@ export default function App() {
       });
       return updatedSources;
     });
+
+    if (testLocation) {
+      setTestLocation([testLocation[0] + deltaLat, testLocation[1] + deltaLon]);
+    }
+
     setIsRelocatingSweetSpot(false);
   };
 
@@ -416,8 +449,45 @@ export default function App() {
 
                 {/* Inputs */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Kr/m</label>
+                  <div className="relative">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Kr/m</label>
+                      {COST_TEMPLATES[name] && (
+                        <div className="relative">
+                          <button 
+                            onClick={() => setOpenTemplateMenu(openTemplateMenu === name ? null : name)}
+                            className={`p-0.5 rounded transition-colors ${openTemplateMenu === name ? theme.action + ' text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            title="Välj schablonkostnad"
+                          >
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          
+                          <AnimatePresence>
+                            {openTemplateMenu === name && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                                className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-100 z-[100] overflow-hidden"
+                              >
+                                {COST_TEMPLATES[name].map((tpl, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => {
+                                      updateSource(name, { cost: tpl.value });
+                                      setOpenTemplateMenu(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                                  >
+                                    <div className="text-slate-700 font-medium leading-tight">{tpl.label}</div>
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                    </div>
                     <input 
                       type="number" 
                       value={data.cost}
@@ -504,28 +574,29 @@ export default function App() {
 
           {/* Analysis Contours */}
           {showSweetSpot && analysis.contourData.map((contour, i) => (
-             contour.polygons.map((ringSet, j) => (
-               <React.Fragment key={`contour-group-${i}-${j}`}>
-                 {/* Halo / Shadow Line */}
-                 <Polyline
-                   positions={ringSet as any}
-                   pathOptions={{ 
-                     color: '#000', 
-                     weight: (i + 12) / 3, 
-                     opacity: 0.1,
-                   }}
-                 />
-                 {/* Main Colored Line */}
-                 <Polyline
-                   positions={ringSet as any}
-                   pathOptions={{ 
-                     color: contour.color, 
-                     weight: (i + 8) / 3, 
-                     opacity: 0.8
-                   }}
-                 />
-               </React.Fragment>
-             ))
+             contour.polygons.map((ringSet, j) => {
+               // i increases from outermost (0) to innermost (steps-1)
+               // The user wants stronger towards center
+               const fillOpacity = 0.12 + (i * 0.035);
+               const strokeOpacity = 0.2 + (i * 0.04);
+               
+               return (
+                 <React.Fragment key={`contour-group-${i}-${j}`}>
+                   <Polygon
+                     positions={ringSet as any}
+                     pathOptions={{ 
+                       color: contour.color,
+                       fillColor: contour.color,
+                       fillOpacity: Math.min(fillOpacity, 0.85),
+                       weight: 1.5,
+                       opacity: Math.min(strokeOpacity, 0.9),
+                       stroke: true,
+                       lineJoin: 'round'
+                     }}
+                   />
+                 </React.Fragment>
+               );
+             })
           ))}
 
           {/* Source Paths and Markers */}
@@ -632,10 +703,10 @@ export default function App() {
               icon={L.divIcon({
                 className: 'custom-sweetspot',
                 html: `
-                  <div class="sweetspot-container">
-                    <div class="sweetspot-ping-inner"></div>
-                    <div class="sweetspot-ping-outer"></div>
-                    <div class="sweetspot-dot"></div>
+                  <div class="sweetspot-container" style="opacity: 0.85;">
+                    <div class="sweetspot-ping-inner" style="border-color: #fff; background: rgba(255,255,255,0.3);"></div>
+                    <div class="sweetspot-ping-outer" style="border-color: #fff; opacity: 0.4;"></div>
+                    <div class="sweetspot-dot" style="background: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.6);"></div>
                   </div>
                 `,
                 iconSize: [30, 30],
