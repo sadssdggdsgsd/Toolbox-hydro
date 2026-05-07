@@ -300,6 +300,22 @@ export default function App() {
               Sweetspotfinder
             </h1>
             <div className="flex gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
+              {/* Relocate Everything Button */}
+              <button 
+                onClick={() => {
+                  setIsRelocatingSweetSpot(!isRelocatingSweetSpot);
+                  setPlacingTestLocation(false);
+                }}
+                className={`p-2 rounded-xl transition-all group relative ${
+                  isRelocatingSweetSpot 
+                    ? 'bg-[#6366f1] text-white shadow-lg ring-2 ring-indigo-100' 
+                    : 'text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm'
+                }`}
+                title="Flytta allt (relokera hela systemet)"
+              >
+                <Move className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
+              </button>
+
               {/* Toggle Sweet Spot Button */}
               <button 
                 onClick={() => setShowSweetSpot(!showSweetSpot)}
@@ -332,9 +348,6 @@ export default function App() {
                 title={testLocation ? "Visa/dölj vald plats" : "Välj plats på karta"}
               >
                 <MapPin className={`w-5 h-5 ${placingTestLocation ? 'animate-pulse' : ''}`} />
-                {testLocation && !showTestLocation && (
-                  <div className="absolute top-1 right-1 w-2 h-2 bg-blue-400 rounded-full border border-white" />
-                )}
               </button>
             </div>
           </div>
@@ -608,9 +621,6 @@ export default function App() {
                   iconAnchor: [12, 24]
                 })}
               >
-                <Tooltip permanent direction="bottom" offset={[0, 10]} className="!bg-slate-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
-                  {Math.round(testLocationResult?.total || 0).toLocaleString('sv-SE')} kr
-                </Tooltip>
               </Marker>
             </>
           )}
@@ -643,23 +653,16 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               className="bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white pointer-events-auto"
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#4778A5]" fill="#4778A520" />
                   <span className="text-slate-800 font-black tracking-tight text-[11px] uppercase">Vald plats</span>
                 </div>
-                <button 
-                  onClick={() => setTestLocation(null)}
-                  className="p-1 px-2 text-[9px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"
-                >
-                  Ta bort
-                </button>
+                <div className="font-mono font-black text-slate-800 text-base">
+                  {Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr
+                </div>
               </div>
               
-              <div className="text-xl font-black text-slate-900 tracking-tight mb-4">
-                {Math.round(testLocationResult.total).toLocaleString('sv-SE')} <span className="text-[10px] text-slate-400 font-medium">kr</span>
-              </div>
-
               <div className="space-y-2">
                 {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
                   <div key={name} className="flex justify-between items-center bg-slate-50 p-2 px-3 rounded-xl border border-slate-100">
@@ -739,8 +742,8 @@ export default function App() {
               className="absolute top-8 left-1/2 -translate-x-1/2 z-[2000] pointer-events-none"
             >
               <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3">
-                <MousePointer2 className="w-4 h-4 text-indigo-400 animate-bounce" />
-                <span className="text-xs font-medium tracking-wide">Klicka på kartan för att placera den nya Sweet Spoten</span>
+                <Move className="w-4 h-4 text-indigo-400 animate-bounce" />
+                <span className="text-xs font-medium tracking-wide">Klicka på kartan för att flytta hela systemet (källor + sweetspot)</span>
               </div>
             </motion.div>
           )}
