@@ -208,13 +208,16 @@ export default function App() {
   const [placingTestLocation, setPlacingTestLocation] = useState(false);
   const [basemap, setBasemap] = useState<BasemapKey>('orto');
   
-  // Relocation state
+  // Visibility states
+  const [showSweetSpot, setShowSweetSpot] = useState(true);
+  const [showTestLocation, setShowTestLocation] = useState(true);
   const [isRelocatingSweetSpot, setIsRelocatingSweetSpot] = useState(false);
 
   const analysis = useMemo(() => runAnalysis(sources), [sources]);
 
   const sourceDistances = useMemo(() => {
     const dists: Record<string, number> = {};
+    const target = testLocation || analysis.bestLoc;
     (Object.entries(sources) as [string, Source][]).forEach(([name, data]) => {
       let dist = 0;
       let curr = data.loc;
@@ -222,11 +225,11 @@ export default function App() {
         dist += getDistance(curr, node);
         curr = node;
       }
-      dist += getDistance(curr, analysis.bestLoc);
+      dist += getDistance(curr, target);
       dists[name] = dist;
     });
     return dists;
-  }, [sources, analysis.bestLoc]);
+  }, [sources, analysis.bestLoc, testLocation]);
 
   const testLocationResult = useMemo(() => {
     if (!testLocation) return null;
@@ -297,48 +300,40 @@ export default function App() {
               Sweetspotfinder
             </h1>
             <div className="flex gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
-              {/* Relocate Sweet Spot Button */}
+              {/* Toggle Sweet Spot Button */}
               <button 
-                onClick={() => {
-                  setIsRelocatingSweetSpot(!isRelocatingSweetSpot);
-                  setPlacingTestLocation(false);
-                }}
+                onClick={() => setShowSweetSpot(!showSweetSpot)}
                 className={`p-2 rounded-xl transition-all group relative ${
-                  isRelocatingSweetSpot 
+                  showSweetSpot 
                     ? 'bg-[#393F4C] text-white shadow-lg ring-2 ring-slate-200' 
                     : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
                 }`}
-                title="Flytta sweet spot"
+                title="Visa/dölj Sweet Spot"
               >
-                <Target className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
+                <Target className="w-5 h-5" />
               </button>
 
               {/* Manual/Test Location Button */}
               <button 
                 onClick={() => {
-                  if (testLocation || placingTestLocation) {
-                    setTestLocation(null);
+                  if (testLocation) {
+                    setShowTestLocation(!showTestLocation);
                     setPlacingTestLocation(false);
                   } else {
-                    setPlacingTestLocation(true);
-                    setIsRelocatingSweetSpot(false);
+                    setPlacingTestLocation(!placingTestLocation);
                   }
+                  setIsRelocatingSweetSpot(false);
                 }}
                 className={`p-2 rounded-xl transition-all group relative ${
-                  (testLocation || placingTestLocation)
-                    ? 'bg-red-500 text-white shadow-lg ring-2 ring-red-100' 
-                    : 'text-slate-400 hover:text-[#4778A5] hover:bg-white hover:shadow-sm'
+                  (testLocation && showTestLocation) || placingTestLocation
+                    ? 'bg-[#4778A5] text-white shadow-lg ring-2 ring-blue-100' 
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
                 }`}
-                style={{ 
-                  backgroundColor: (!testLocation && !placingTestLocation) ? undefined : undefined,
-                  color: (!testLocation && !placingTestLocation) ? undefined : undefined 
-                }}
-                title={testLocation || placingTestLocation ? "Rensa vald plats" : "Välj plats manuellt"}
+                title={testLocation ? "Visa/dölj vald plats" : "Välj plats på karta"}
               >
-                {testLocation || placingTestLocation ? (
-                  <Undo2 className="w-5 h-5" />
-                ) : (
-                  <MapPin className="w-5 h-5" />
+                <MapPin className={`w-5 h-5 ${placingTestLocation ? 'animate-pulse' : ''}`} />
+                {testLocation && !showTestLocation && (
+                  <div className="absolute top-1 right-1 w-2 h-2 bg-blue-400 rounded-full border border-white" />
                 )}
               </button>
             </div>
@@ -365,18 +360,11 @@ export default function App() {
                     >
                       <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${data.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </button>
-                    <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
-                  </div>
-                  {data.enabled && (
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-mono font-black text-slate-400 bg-white/50 px-1.5 py-0.5 rounded border border-black/5">
-                        {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
-                      </span>
-                    </div>
-                  )}
+                  <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
                 </div>
+              </div>
 
-                {/* Tools */}
+              {/* Tools */}
                 {data.enabled && (
                   <div className="flex gap-1 mb-4">
                     <button
@@ -501,8 +489,8 @@ export default function App() {
             onRelocate={handleRelocate}
           />
 
-          {/* Analysis Contours with Halo for maximum visibility */}
-          {analysis.contourData.map((contour, i) => (
+          {/* Analysis Contours */}
+          {showSweetSpot && analysis.contourData.map((contour, i) => (
              contour.polygons.map((ringSet, j) => (
                <React.Fragment key={`contour-group-${i}-${j}`}>
                  {/* Halo / Shadow Line */}
@@ -510,8 +498,8 @@ export default function App() {
                    positions={ringSet as any}
                    pathOptions={{ 
                      color: '#000', 
-                     weight: (i + 4) / 3, 
-                     opacity: 0.3,
+                     weight: (i + 12) / 3, 
+                     opacity: 0.1,
                    }}
                  />
                  {/* Main Colored Line */}
@@ -519,8 +507,8 @@ export default function App() {
                    positions={ringSet as any}
                    pathOptions={{ 
                      color: contour.color, 
-                     weight: (i + 1.5) / 3, 
-                     opacity: 0.75
+                     weight: (i + 8) / 3, 
+                     opacity: 0.8
                    }}
                  />
                </React.Fragment>
@@ -529,7 +517,8 @@ export default function App() {
 
           {/* Source Paths and Markers */}
           {(Object.entries(sources) as [string, Source][]).map(([name, data]) => {
-            const path = [data.loc, ...data.nodes, analysis.bestLoc];
+            const target = (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
+            const path = [data.loc, ...data.nodes, target];
             return (
               <React.Fragment key={name}>
                 {data.enabled && (
@@ -537,9 +526,9 @@ export default function App() {
                     positions={path} 
                     pathOptions={{ 
                       color: data.color, 
-                      weight: 2, 
-                      opacity: 0.6,
-                      dashArray: '8, 4'
+                      weight: (testLocation && showTestLocation) ? 4 : 2, 
+                      opacity: (testLocation && showTestLocation) ? 0.8 : 0.3,
+                      dashArray: (testLocation && showTestLocation) ? 'none' : '8, 4'
                     }} 
                   />
                 )}
@@ -593,23 +582,8 @@ export default function App() {
           })}
 
           {/* Test Location Marker */}
-          {testLocation && (
+          {testLocation && showTestLocation && (
             <>
-              {(Object.entries(sources) as [string, Source][]).map(([name, data]) => {
-                const path = [data.loc, ...data.nodes, testLocation];
-                return data.enabled ? (
-                  <Polyline 
-                    key={`test-path-${name}`}
-                    positions={path} 
-                    pathOptions={{ 
-                      color: data.color, 
-                      weight: 1, 
-                      opacity: 0.3,
-                      dashArray: '4, 4'
-                    }} 
-                  />
-                ) : null;
-              })}
               <Marker 
                 position={testLocation}
                 draggable
@@ -623,109 +597,129 @@ export default function App() {
                 icon={L.divIcon({
                   className: 'custom-test-location',
                   html: `
-                    <div class="test-location-container">
-                      <div class="test-location-dot"></div>
+                    <div class="test-location-pin">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4778A5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2))">
+                        <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/>
+                        <circle cx="12" cy="10" r="3" fill="white"/>
+                      </svg>
                     </div>
                   `,
                   iconSize: [24, 24],
-                  iconAnchor: [12, 12]
+                  iconAnchor: [12, 24]
                 })}
               >
                 <Tooltip permanent direction="bottom" offset={[0, 10]} className="!bg-slate-600/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none">
-                  <span>Vald plats</span>
+                  {Math.round(testLocationResult?.total || 0).toLocaleString('sv-SE')} kr
                 </Tooltip>
               </Marker>
             </>
           )}
 
-          <Marker 
-            position={analysis.bestLoc}
-            icon={L.divIcon({
-              className: 'custom-sweetspot',
-              html: `
-                <div class="sweetspot-container">
-                  <div class="sweetspot-ping-inner"></div>
-                  <div class="sweetspot-ping-outer"></div>
-                  <div class="sweetspot-dot"></div>
-                </div>
-              `,
-              iconSize: [30, 30],
-              iconAnchor: [15, 15]
-            })}
-          />
+          {/* Sweet Spot Marker */}
+          {showSweetSpot && (
+            <Marker 
+              position={analysis.bestLoc}
+              icon={L.divIcon({
+                className: 'custom-sweetspot',
+                html: `
+                  <div class="sweetspot-container">
+                    <div class="sweetspot-ping-inner"></div>
+                    <div class="sweetspot-ping-outer"></div>
+                    <div class="sweetspot-dot"></div>
+                  </div>
+                `,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+              })}
+            />
+          )}
         </MapContainer>
 
-        {/* Floating Legend Overlay */}
-        <div className="absolute top-6 right-6 z-[1000] w-72 bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white">
-          <div className="space-y-4 text-sm">
-              <div className="bg-slate-900 p-3 rounded-2xl shadow-lg shadow-slate-200 border-l-4" style={{ borderColor: '#393F4C' }}>
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="relative flex items-center justify-center">
-                      <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
-                      <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
-                    </div>
-                    <span className="text-white font-black tracking-tight text-[11px] uppercase">Sweet spot</span>
-                  </div>
-                  <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
+        <div className="absolute top-6 right-6 z-[1000] w-80 max-h-[90%] flex flex-col gap-4 pointer-events-none">
+          {/* Selected Location Panel */}
+          {testLocationResult && showTestLocation && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white pointer-events-auto"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#4778A5]" fill="#4778A520" />
+                  <span className="text-slate-800 font-black tracking-tight text-[11px] uppercase">Vald plats</span>
                 </div>
-                <div className="space-y-1 pl-10 pr-3">
-                  {Object.entries(analysis.breakdown).map(([name, val]) => (
-                    <div key={name} className="flex justify-between items-baseline text-[10px] text-white/40">
-                      <span className="font-medium">{name}</span>
-                      <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val as number).toLocaleString('sv-SE')} kr</span>
-                    </div>
-                  ))}
-                </div>
+                <button 
+                  onClick={() => setTestLocation(null)}
+                  className="p-1 px-2 text-[9px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-lg"
+                >
+                  Ta bort
+                </button>
+              </div>
+              
+              <div className="text-xl font-black text-slate-900 tracking-tight mb-4">
+                {Math.round(testLocationResult.total).toLocaleString('sv-SE')} <span className="text-[10px] text-slate-400 font-medium">kr</span>
               </div>
 
-              {testLocationResult !== null && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-sm border-l-4"
-                  style={{ borderColor: '#4778A5' }}
-                >
-                  <div className="flex justify-between items-center mb-2">
+              <div className="space-y-2">
+                {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center bg-slate-50 p-2 px-3 rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sources[name].color }} />
+                      <span className="text-[10px] font-bold text-slate-600">{name}</span>
+                    </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-2.5 h-2.5 rounded-full ring-2 ring-white" style={{ backgroundColor: '#4778A5' }} />
-                      <span className="text-slate-500 font-bold text-[11px] uppercase">Vald plats</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-mono font-black text-slate-800">{Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr</div>
+                      <span className="text-[9px] font-mono font-medium text-slate-400">
+                        {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
+                      </span>
+                      <span className="text-[10px] font-mono font-black text-slate-900">
+                        {Math.round(val as number).toLocaleString('sv-SE')} kr
+                      </span>
                     </div>
                   </div>
-                  <div className="space-y-1 pl-[34px] pr-3">
-                    {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
-                      <div key={name} className="flex justify-between items-baseline text-[10px] text-slate-400">
-                        <span className="font-medium">{name}</span>
-                        <span className="font-mono whitespace-nowrap ml-4 shrink-0">{Math.round(val as number).toLocaleString('sv-SE')} kr</span>
-                      </div>
-                    ))}
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Sweet Spot & Zones Panel */}
+          {showSweetSpot && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-slate-900/95 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.4)] border border-white/10 pointer-events-auto"
+            >
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
+                    <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
                   </div>
-                </motion.div>
-              )}
-             
-             <div className="pt-1 space-y-2">
+                  <span className="text-white font-black tracking-tight text-[11px] uppercase">Sweet spot</span>
+                </div>
+                <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
+              </div>
+
+              <div className="space-y-1.5">
                 {[
                   { label: 'Inre zon', color: '#ff5500', val: analysis.thresholds.inner },
                   { label: 'Mellanzon', color: '#ffaa00', val: analysis.thresholds.middle },
                   { label: 'Yttre zon', color: '#ffff00', val: analysis.thresholds.outer }
                 ].map(item => (
-                  <div key={item.label} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
-                    <div className="flex items-center gap-2">
-                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                       <span className="text-slate-600 font-medium">{item.label}</span>
+                  <div key={item.label} className="flex justify-between items-center py-1.5 px-3 rounded-lg border border-white/5 relative overflow-hidden group">
+                    {/* Colored Band Background */}
+                    <div 
+                      className="absolute inset-0 opacity-25" 
+                      style={{ backgroundColor: item.color }} 
+                    />
+                    <div className="relative z-10">
+                      <div className="text-white text-[9px] font-bold uppercase tracking-widest">{item.label}</div>
                     </div>
-                    <span className="font-mono font-bold text-slate-700">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
+                    <span className="relative z-10 font-mono font-black text-white/90 text-[10px]">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
-             </div>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-slate-50">
-             <p className="text-[10px] text-slate-400 italic">Resultat baserat på linjär distans och nuvarande viktning.</p>
-          </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Map Controls */}
