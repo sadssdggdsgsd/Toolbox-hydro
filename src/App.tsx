@@ -350,7 +350,7 @@ export default function App() {
                     ? 'bg-[#6366f1] text-white shadow-lg ring-2 ring-indigo-100' 
                     : 'text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm'
                 }`}
-                title="Flytta allt (relokera hela systemet)"
+                title="Flytta allt"
               >
                 <Move className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
               </button>
@@ -363,7 +363,7 @@ export default function App() {
                     ? 'bg-[#393F4C] text-white shadow-lg ring-2 ring-slate-200' 
                     : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
                 }`}
-                title="Visa/dölj Sweet Spot"
+                title="Aktivera Sweet Spot"
               >
                 <Target className="w-5 h-5" />
               </button>
@@ -384,7 +384,7 @@ export default function App() {
                     ? 'bg-[#4778A5] text-white shadow-lg ring-2 ring-blue-100' 
                     : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
                 }`}
-                title={testLocation ? "Visa/dölj vald plats" : "Välj plats på karta"}
+                title="Aktivera Vald Plats"
               >
                 <MapPin className={`w-5 h-5 ${placingTestLocation ? 'animate-pulse' : ''}`} />
               </button>
