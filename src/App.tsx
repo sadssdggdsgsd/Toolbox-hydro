@@ -89,20 +89,20 @@ const INITIAL_SOURCES: Record<string, Source> = {
     name: 'Tekniskt vatten',
     loc: [62.559033, 16.791220],
     color: '#0ea5e9', // cyan-500
-    cost: 7000,
+    cost: 2000,
     weight: 1.0,
     nodes: [],
     enabled: true,
     isSplit: false,
     splitNodeIndex: 0,
-    splitCost: 7000,
+    splitCost: 2000,
     splitWeight: 1.0
   },
   'Vatten-VA': {
     name: 'Vatten-VA',
     loc: [62.520967, 16.791220],
     color: '#22c55e', // green-500
-    cost: 1500,
+    cost: 2000,
     weight: 1.0,
     nodes: [],
     enabled: true
@@ -111,7 +111,7 @@ const INITIAL_SOURCES: Record<string, Source> = {
     name: 'El',
     loc: [62.520967, 16.708780],
     color: '#ef4444', // red-500
-    cost: 1500,
+    cost: 2000,
     weight: 1.0,
     nodes: [],
     enabled: true
@@ -120,7 +120,7 @@ const INITIAL_SOURCES: Record<string, Source> = {
     name: 'Väg',
     loc: [62.559033, 16.708780],
     color: '#8b5cf6', // violet-500
-    cost: 1500,
+    cost: 2000,
     weight: 1.0,
     nodes: [],
     enabled: true
