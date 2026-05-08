@@ -637,7 +637,7 @@ export default function App() {
                     pathOptions={{ 
                       color: data.color, 
                       weight: (testLocation && showTestLocation) ? 4 : 2, 
-                      opacity: (testLocation && showTestLocation) ? 0.8 : 0.3,
+                      opacity: (testLocation && showTestLocation) ? 0.8 : 0.6, // Här ändrar du opaciteten för sweetspot-linjerna (0.6 = 60%)
                       dashArray: (testLocation && showTestLocation) ? 'none' : '8, 4'
                     }} 
                   />
@@ -729,14 +729,17 @@ export default function App() {
               icon={L.divIcon({
                 className: 'custom-sweetspot',
                 html: `
-                  <div class="sweetspot-container" style="opacity: 0.85;">
-                    <div class="sweetspot-ping-inner" style="border-color: #fff; background: rgba(255,255,255,0.3);"></div>
-                    <div class="sweetspot-ping-outer" style="border-color: #fff; opacity: 0.4;"></div>
-                    <div class="sweetspot-dot" style="background: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.6);"></div>
+                  <div class="sweetspot-container" style="opacity: 0.95;">
+                    <div class="sweetspot-ping-inner" style="border-color: #fff; background: rgba(255,255,255,0.2);"></div>
+                    <div class="sweetspot-ping-outer" style="border-color: #fff; opacity: 0.3;"></div>
+                    <div class="sweetspot-bullseye">
+                      <div class="bullseye-ring"></div>
+                      <div class="bullseye-dot"></div>
+                    </div>
                   </div>
                 `,
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
               })}
             />
           )}
@@ -791,8 +794,8 @@ export default function App() {
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
                   <div className="relative flex items-center justify-center">
-                    <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
-                    <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
+                    <div className="absolute w-5 h-5 rounded-full border border-white/40 animate-ping" />
+                    <Target className="w-5 h-5 text-white relative z-10" />
                   </div>
                   <span className="text-white font-black tracking-tight text-[13px] uppercase">Sweet spot</span>
                 </div>
