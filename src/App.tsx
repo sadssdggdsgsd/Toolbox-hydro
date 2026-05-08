@@ -116,28 +116,29 @@ const INITIAL_SOURCES: Record<string, Source> = {
   }
 };
 
-const COST_TEMPLATES: Record<string, { label: string; value: number }[]> = {
+const COST_TEMPLATES: Record<string, { label: string; subLabel: string; value: number }[]> = {
   'El': [
-    { label: '1 – 10 MW (1 200 kr/m)', value: 1200 },
-    { label: '10 – 50 MW (8 000 kr/m)', value: 8000 },
-    { label: '50 – 200 MW (20 000 kr/m)', value: 20000 },
-    { label: '200 – 1000 MW (30 000 kr/m)', value: 30000 },
+    { label: '1 – 10 MW', subLabel: '10 - 24 kV • 1 200 kr/m', value: 1200 },
+    { label: '10 – 50 MW', subLabel: '24 - 130 kV • 8 000 kr/m', value: 8000 },
+    { label: '50 – 200 MW', subLabel: '130 kV • 20 000 kr/m', value: 20000 },
+    { label: '200 – 1000 MW', subLabel: '130 - 400 kV • 30 000 kr/m', value: 30000 },
   ],
   'Väg': [
-    { label: 'Enkel industriväg (20 000 kr/m)', value: 20000 },
-    { label: 'Tung industriväg (50 000 kr/m)', value: 50000 },
-    { label: 'Logistikled (100 000 kr/m)', value: 100000 },
+    { label: 'Enkel industriväg', subLabel: '6-7 m bred, asfalt • 20 000 kr/m', value: 20000 },
+    { label: 'Tung industriväg', subLabel: '8 m bred, förstärkt bärighet • 50 000 kr/m', value: 50000 },
+    { label: 'Logistikled', subLabel: '10-12 m bred, svängradier • 100 000 kr/m', value: 100000 },
   ],
   'Vatten-VA': [
-    { label: 'DN 110 – 160 mm (5 000 kr/m)', value: 5000 },
-    { label: 'DN 200 – 250 mm (10 000 kr/m)', value: 10000 },
-    { label: 'DN 315 – 450 mm (15 000 kr/m)', value: 15000 },
-    { label: 'DN 500 – 800+ mm (30 000 kr/m)', value: 30000 },
+    { label: 'Standard', subLabel: 'DN 110 – 160 mm • 5 000 kr/m', value: 5000 },
+    { label: 'Utökad', subLabel: 'DN 200 – 250 mm • 10 000 kr/m', value: 10000 },
+    { label: 'Huvudledning', subLabel: 'DN 315 – 450 mm • 15 000 kr/m', value: 15000 },
+    { label: 'Magistral', subLabel: 'DN 500 – 800+ mm • 30 000 kr/m', value: 30000 },
   ],
   'Tekniskt vatten': [
-    { label: '< 200 m³/dygn (3 000 kr/m)', value: 3000 },
-    { label: '200 – 1 000 m³/dygn (7 000 kr/m)', value: 7000 },
-    { label: '1 000 – 4 000 m³/dygn (15 000 kr/m)', value: 15000 },
+    { label: 'Lågt behov', subLabel: '< 200 m³/dygn • 3 000 kr/m', value: 3000 },
+    { label: 'Måttligt behov', subLabel: '200 – 1 000 m³/dygn • 7 000 kr/m', value: 7000 },
+    { label: 'Högt behov', subLabel: '1 000 – 4 000 m³/dygn • 15 000 kr/m', value: 15000 },
+    { label: 'Mycket högt behov', subLabel: '5 000 – 25 000 m³/dygn • 30 000 kr/m', value: 30000 },
   ]
 };
 
@@ -450,16 +451,20 @@ export default function App() {
                 {/* Inputs */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex justify-between items-center h-7 mb-1">
                       <label className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Kr/m</label>
                       {COST_TEMPLATES[name] && (
                         <div className="relative">
                           <button 
                             onClick={() => setOpenTemplateMenu(openTemplateMenu === name ? null : name)}
-                            className={`p-0.5 rounded transition-colors ${openTemplateMenu === name ? theme.action + ' text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`p-1 rounded-md border transition-all shadow-sm ${
+                              openTemplateMenu === name 
+                              ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-inner' 
+                              : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                            }`}
                             title="Välj schablonkostnad"
                           >
-                            <ChevronDown className="w-3 h-3" />
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openTemplateMenu === name ? 'rotate-180' : ''}`} />
                           </button>
                           
                           <AnimatePresence>
@@ -468,8 +473,11 @@ export default function App() {
                                 initial={{ opacity: 0, y: 5, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                                className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-100 z-[100] overflow-hidden"
+                                className="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 z-[100] overflow-hidden p-1.5"
                               >
+                                <div className="px-2 py-1.5 mb-1.5 border-b border-slate-50">
+                                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Välj schablon</div>
+                                </div>
                                 {COST_TEMPLATES[name].map((tpl, i) => (
                                   <button
                                     key={i}
@@ -477,9 +485,15 @@ export default function App() {
                                       updateSource(name, { cost: tpl.value });
                                       setOpenTemplateMenu(null);
                                     }}
-                                    className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-all group ${theme.btnHover}`}
                                   >
-                                    <div className="text-slate-700 font-medium leading-tight">{tpl.label}</div>
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-1 h-8 rounded-full mt-0.5 shrink-0 ${theme.action} opacity-20 group-hover:opacity-100 transition-opacity`} />
+                                      <div>
+                                        <div className={`text-[11px] font-bold ${theme.title} transition-colors`}>{tpl.label}</div>
+                                        <div className="text-[10px] text-slate-500 font-medium group-hover:text-slate-700 mt-0.5">{tpl.subLabel}</div>
+                                      </div>
+                                    </div>
                                   </button>
                                 ))}
                               </motion.div>
@@ -497,7 +511,9 @@ export default function App() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase font-bold tracking-tight">Vikt</label>
+                    <div className="flex items-center h-7 mb-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Vikt</label>
+                    </div>
                     <div className="flex items-center gap-2">
                        <input 
                         type="range" 
