@@ -753,25 +753,25 @@ export default function App() {
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#4778A5]" fill="#4778A520" />
-                  <span className="text-slate-800 font-black tracking-tight text-[11px] uppercase">Vald plats</span>
+                  <span className="text-slate-800 font-black tracking-tight text-[13px] uppercase">Vald plats</span>
                 </div>
-                <div className="font-mono font-black text-slate-800 text-base">
+                <div className="font-mono font-black text-[#4778A5] text-lg bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
                   {Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr
                 </div>
               </div>
               
               <div className="space-y-2">
                 {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
-                  <div key={name} className="flex justify-between items-center bg-slate-50 p-2 px-3 rounded-xl border border-slate-100">
+                  <div key={name} className="flex justify-between items-center bg-slate-50 p-2.5 px-3 rounded-xl border border-slate-100">
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sources[name].color }} />
-                      <span className="text-[10px] font-bold text-slate-600">{name}</span>
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sources[name].color }} />
+                      <span className="text-[11px] font-bold text-slate-600">{name}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[9px] font-mono font-medium text-slate-400">
+                    <div className="flex items-center gap-4">
+                      <span className="text-[11px] font-mono font-medium text-slate-400">
                         {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
                       </span>
-                      <span className="text-[10px] font-mono font-black text-slate-900">
+                      <span className="text-[12px] font-mono font-black text-slate-900">
                         {Math.round(val as number).toLocaleString('sv-SE')} kr
                       </span>
                     </div>
@@ -794,9 +794,11 @@ export default function App() {
                     <div className="absolute w-4 h-4 rounded-full border border-white/30 animate-ping" />
                     <div className="w-2 h-2 rounded-full bg-white ring-2 ring-white/10" />
                   </div>
-                  <span className="text-white font-black tracking-tight text-[11px] uppercase">Sweet spot</span>
+                  <span className="text-white font-black tracking-tight text-[13px] uppercase">Sweet spot</span>
                 </div>
-                <span className="font-mono font-black text-white text-base">{Math.round(analysis.minVal).toLocaleString('sv-SE')} kr</span>
+                <span className="font-mono font-black text-white text-lg bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                  {Math.round(analysis.minVal).toLocaleString('sv-SE')} kr
+                </span>
               </div>
 
               <div className="space-y-1.5">
@@ -805,16 +807,16 @@ export default function App() {
                   { label: 'Mellanzon', color: '#ffaa00', val: analysis.thresholds.middle },
                   { label: 'Yttre zon', color: '#ffff00', val: analysis.thresholds.outer }
                 ].map(item => (
-                  <div key={item.label} className="flex justify-between items-center py-1.5 px-3 rounded-lg border border-white/5 relative overflow-hidden group">
+                  <div key={item.label} className="flex justify-between items-center py-2 px-3 rounded-xl border border-white/5 relative overflow-hidden group">
                     {/* Colored Band Background */}
                     <div 
-                      className="absolute inset-0 opacity-25" 
+                      className="absolute inset-0 opacity-25 group-hover:opacity-30 transition-opacity" 
                       style={{ backgroundColor: item.color }} 
                     />
                     <div className="relative z-10">
-                      <div className="text-white text-[9px] font-bold uppercase tracking-widest">{item.label}</div>
+                      <div className="text-white text-[11px] font-bold uppercase tracking-widest">{item.label}</div>
                     </div>
-                    <span className="relative z-10 font-mono font-black text-white/90 text-[10px]">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
+                    <span className="relative z-10 font-mono font-black text-white text-[12px]">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
               </div>
