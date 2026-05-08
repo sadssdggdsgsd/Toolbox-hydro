@@ -116,29 +116,29 @@ const INITIAL_SOURCES: Record<string, Source> = {
   }
 };
 
-const COST_TEMPLATES: Record<string, { label: string; subLabel: string; value: number }[]> = {
+const COST_TEMPLATES: Record<string, { label: string; subLabel: string; costLabel: string; value: number }[]> = {
   'El': [
-    { label: '1 – 10 MW', subLabel: '10 - 24 kV • 1 200 kr/m', value: 1200 },
-    { label: '10 – 50 MW', subLabel: '24 - 130 kV • 8 000 kr/m', value: 8000 },
-    { label: '50 – 200 MW', subLabel: '130 kV • 20 000 kr/m', value: 20000 },
-    { label: '200 – 1000 MW', subLabel: '130 - 400 kV • 30 000 kr/m', value: 30000 },
+    { label: '1 – 10 MW', subLabel: '10 - 24 kV', costLabel: '1 200 kr/m', value: 1200 },
+    { label: '10 – 50 MW', subLabel: '24 - 130 kV', costLabel: '8 000 kr/m', value: 8000 },
+    { label: '50 – 200 MW', subLabel: '130 kV', costLabel: '20 000 kr/m', value: 20000 },
+    { label: '200 – 1000 MW', subLabel: '130 - 400 kV', costLabel: '30 000 kr/m', value: 30000 },
   ],
   'Väg': [
-    { label: 'Enkel industriväg', subLabel: '6-7 m bred, asfalt • 20 000 kr/m', value: 20000 },
-    { label: 'Tung industriväg', subLabel: '8 m bred, förstärkt bärighet • 50 000 kr/m', value: 50000 },
-    { label: 'Logistikled', subLabel: '10-12 m bred, svängradier • 100 000 kr/m', value: 100000 },
+    { label: 'Enkel industriväg', subLabel: '6-7 m bred, asfalt', costLabel: '20 000 kr/m', value: 20000 },
+    { label: 'Tung industriväg', subLabel: '8 m bred, förstärkt bärighet', costLabel: '50 000 kr/m', value: 50000 },
+    { label: 'Logistikled', subLabel: '10-12 m bred, svängradier', costLabel: '100 000 kr/m', value: 100000 },
   ],
   'Vatten-VA': [
-    { label: 'Standard', subLabel: 'DN 110 – 160 mm • 5 000 kr/m', value: 5000 },
-    { label: 'Utökad', subLabel: 'DN 200 – 250 mm • 10 000 kr/m', value: 10000 },
-    { label: 'Huvudledning', subLabel: 'DN 315 – 450 mm • 15 000 kr/m', value: 15000 },
-    { label: 'Magistral', subLabel: 'DN 500 – 800+ mm • 30 000 kr/m', value: 30000 },
+    { label: 'Standard', subLabel: 'DN 110 – 160 mm', costLabel: '5 000 kr/m', value: 5000 },
+    { label: 'Utökad', subLabel: 'DN 200 – 250 mm', costLabel: '10 000 kr/m', value: 10000 },
+    { label: 'Huvudledning', subLabel: 'DN 315 – 450 mm', costLabel: '15 000 kr/m', value: 15000 },
+    { label: 'Magistral', subLabel: 'DN 500 – 800+ mm', costLabel: '30 000 kr/m', value: 30000 },
   ],
   'Tekniskt vatten': [
-    { label: 'Lågt behov', subLabel: '< 200 m³/dygn • 3 000 kr/m', value: 3000 },
-    { label: 'Måttligt behov', subLabel: '200 – 1 000 m³/dygn • 7 000 kr/m', value: 7000 },
-    { label: 'Högt behov', subLabel: '1 000 – 4 000 m³/dygn • 15 000 kr/m', value: 15000 },
-    { label: 'Mycket högt behov', subLabel: '5 000 – 25 000 m³/dygn • 30 000 kr/m', value: 30000 },
+    { label: 'Lågt behov', subLabel: '< 200 m³/dygn', costLabel: '3 000 kr/m', value: 3000 },
+    { label: 'Måttligt behov', subLabel: '200 – 1 000 m³/dygn', costLabel: '7 000 kr/m', value: 7000 },
+    { label: 'Högt behov', subLabel: '1 000 – 4 000 m³/dygn', costLabel: '15 000 kr/m', value: 15000 },
+    { label: 'Mycket högt behov', subLabel: '5 000 – 25 000 m³/dygn', costLabel: '30 000 kr/m', value: 30000 },
   ]
 };
 
@@ -152,7 +152,8 @@ const getSourceTheme = (name: string) => {
         track: 'bg-cyan-200',
         btnBorder: 'border-cyan-200',
         btnText: 'text-cyan-600',
-        btnHover: 'hover:bg-cyan-100'
+        btnHover: 'hover:bg-cyan-100',
+        costTagBg: 'bg-cyan-50'
       };
     case 'Vatten-VA':
       return {
@@ -162,7 +163,8 @@ const getSourceTheme = (name: string) => {
         track: 'bg-green-200',
         btnBorder: 'border-green-200',
         btnText: 'text-green-600',
-        btnHover: 'hover:bg-green-100'
+        btnHover: 'hover:bg-green-100',
+        costTagBg: 'bg-green-50'
       };
     case 'El':
       return {
@@ -172,7 +174,8 @@ const getSourceTheme = (name: string) => {
         track: 'bg-red-200',
         btnBorder: 'border-red-200',
         btnText: 'text-red-600',
-        btnHover: 'hover:bg-red-100'
+        btnHover: 'hover:bg-red-100',
+        costTagBg: 'bg-red-50'
       };
     case 'Väg':
       return {
@@ -182,7 +185,8 @@ const getSourceTheme = (name: string) => {
         track: 'bg-violet-200',
         btnBorder: 'border-violet-200',
         btnText: 'text-violet-600',
-        btnHover: 'hover:bg-violet-100'
+        btnHover: 'hover:bg-violet-100',
+        costTagBg: 'bg-violet-50'
       };
     default:
       return {
@@ -192,7 +196,8 @@ const getSourceTheme = (name: string) => {
         track: 'bg-slate-200',
         btnBorder: 'border-slate-200',
         btnText: 'text-slate-600',
-        btnHover: 'hover:bg-slate-100'
+        btnHover: 'hover:bg-slate-100',
+        costTagBg: 'bg-slate-50'
       };
   }
 };
@@ -327,7 +332,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-slate-100 text-slate-800 overflow-hidden font-sans">
       {/* Sidebar */}
-      <aside className="w-80 h-full border-r border-slate-200 bg-white flex flex-col z-10 shadow-lg">
+      <aside className="w-80 h-full border-r border-slate-200 bg-white flex flex-col z-[1001] shadow-lg">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -473,7 +478,7 @@ export default function App() {
                                 initial={{ opacity: 0, y: 5, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                                className="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 z-[100] overflow-hidden p-1.5"
+                                className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden p-1.5"
                               >
                                 <div className="px-2 py-1.5 mb-1.5 border-b border-slate-50">
                                   <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Välj schablon</div>
@@ -488,10 +493,15 @@ export default function App() {
                                     className={`w-full text-left px-3 py-2.5 rounded-lg transition-all group ${theme.btnHover}`}
                                   >
                                     <div className="flex items-start gap-3">
-                                      <div className={`w-1 h-8 rounded-full mt-0.5 shrink-0 ${theme.action} opacity-20 group-hover:opacity-100 transition-opacity`} />
-                                      <div>
-                                        <div className={`text-[11px] font-bold ${theme.title} transition-colors`}>{tpl.label}</div>
-                                        <div className="text-[10px] text-slate-500 font-medium group-hover:text-slate-700 mt-0.5">{tpl.subLabel}</div>
+                                      <div className={`w-1 h-10 rounded-full mt-0.5 shrink-0 ${theme.action} opacity-20 group-hover:opacity-100 transition-opacity`} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-start gap-2 mb-1">
+                                          <div className={`text-[11px] font-bold ${theme.title} transition-colors flex-1`}>{tpl.label}</div>
+                                          <div className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${theme.title} ${theme.costTagBg}/50 transition-all whitespace-nowrap border ${theme.btnBorder} border-opacity-30`}>
+                                            {tpl.costLabel}
+                                          </div>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-medium group-hover:text-slate-700">{tpl.subLabel}</div>
                                       </div>
                                     </div>
                                   </button>
@@ -559,7 +569,7 @@ export default function App() {
       </aside>
 
       {/* Main Map */}
-      <main className="flex-1 relative bg-slate-200">
+      <main className="flex-1 relative bg-slate-200 z-[1]">
         <MapContainer 
           center={analysis.bestLoc} 
           zoom={13} 
