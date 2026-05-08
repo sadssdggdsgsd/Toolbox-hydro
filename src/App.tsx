@@ -27,7 +27,11 @@ import {
   X,
   Move,
   MousePointer2,
-  ChevronDown
+  ChevronDown,
+  Settings2,
+  Trash2,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
@@ -233,6 +237,17 @@ function MapClickHandler({
   return null;
 }
 
+interface WMSLayer {
+  id: string;
+  name: string;
+  url: string;
+  layers: string;
+  format: string;
+  transparent: boolean;
+  opacity: number;
+  enabled: boolean;
+}
+
 export default function App() {
   const [sources, setSources] = useState<Record<string, Source>>(INITIAL_SOURCES);
   const [activeSource, setActiveSource] = useState<string | null>(null);
@@ -241,6 +256,29 @@ export default function App() {
   const [placingTestLocation, setPlacingTestLocation] = useState(false);
   const [basemap, setBasemap] = useState<BasemapKey>('orto');
   const [openTemplateMenu, setOpenTemplateMenu] = useState<string | null>(null);
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
+  const [wmsLayers, setWmsLayers] = useState<WMSLayer[]>([
+    {
+      id: 'berggrund',
+      name: 'Berggrund (SGU)',
+      url: 'https://resource.sgu.se/service/wms/130/berggrund_50-250k',
+      layers: 'Berggrund_50-250k',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.5,
+      enabled: false
+    },
+    {
+      id: 'jordarter',
+      name: 'Jordarter (SGU)',
+      url: 'https://resource.sgu.se/service/wms/130/jordarter_25k-1M',
+      layers: 'Jordarter_25k-1M',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.5,
+      enabled: false
+    }
+  ]);
   
   // Visibility states
   const [showSweetSpot, setShowSweetSpot] = useState(true);
@@ -297,6 +335,12 @@ export default function App() {
 
   const clearNodes = (name: string) => {
     updateSource(name, { nodes: [] });
+  };
+
+  const updateWmsLayer = (id: string, updates: Partial<WMSLayer>) => {
+    setWmsLayers(prev => prev.map(layer => 
+      layer.id === id ? { ...layer, ...updates } : layer
+    ));
   };
 
   const handleMapAction = (latlng: [number, number]) => {
@@ -543,26 +587,110 @@ export default function App() {
           })}
         </div>
 
-        {/* Basemap Switcher */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
-          <div className="flex items-center gap-2">
-            <Layers className="w-3 h-3 text-slate-400" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bakgrundskarta</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {(Object.entries(BASEMAPS) as [keyof typeof BASEMAPS, typeof BASEMAPS['orto']][]).map(([key, config]) => (
-              <button
-                key={key}
-                onClick={() => setBasemap(key)}
-                className={`flex-1 py-1.5 text-[9px] font-bold rounded transition-all ${
-                  basemap === key 
-                    ? 'bg-slate-800 text-white shadow-md' 
-                    : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                {config.name}
-              </button>
-            ))}
+        {/* Map Layers Control */}
+        <div className="p-4 bg-slate-50 border-t border-slate-200">
+          <div className="space-y-4">
+            {/* Basemap Switcher & Layer Toggle */}
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bakgrund</span>
+                </div>
+                
+                {/* Layer Menu Trigger */}
+                <button 
+                  onClick={() => setShowLayerMenu(!showLayerMenu)}
+                  title="Lager"
+                  className={`w-6 h-6 flex items-center justify-center rounded-md border transition-all ${
+                    showLayerMenu 
+                      ? 'bg-indigo-600 text-white border-indigo-600 rotate-45' 
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 shadow-sm'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1">
+                {(Object.entries(BASEMAPS) as [BasemapKey, typeof BASEMAPS['orto']][]).map(([key, config]) => (
+                  <button
+                    key={key}
+                    onClick={() => setBasemap(key)}
+                    className={`flex items-center justify-center py-1.5 px-0.5 text-[9px] font-bold rounded-lg transition-all ${
+                      basemap === key 
+                        ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-800' 
+                        : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {config.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Layer Menu (AnimatePresence moved here) */}
+              <AnimatePresence>
+                {showLayerMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-xl shadow-2xl border border-slate-200 z-[2000]"
+                  >
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                      <span className="text-[11px] font-bold text-slate-700">Lager</span>
+                      <button onClick={() => setShowLayerMenu(false)} className="text-slate-400 hover:text-slate-600">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                      {wmsLayers.map(layer => (
+                        <div key={layer.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <div className={`w-3.5 h-3.5 rounded border transition-all flex items-center justify-center ${
+                                layer.enabled ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'
+                              }`}>
+                                <input 
+                                  type="checkbox" 
+                                  className="hidden" 
+                                  checked={layer.enabled}
+                                  onChange={(e) => updateWmsLayer(layer.id, { enabled: e.target.checked })}
+                                />
+                                {layer.enabled && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                              </div>
+                              <span className={`text-[11px] font-medium transition-colors ${
+                                layer.enabled ? 'text-slate-900' : 'text-slate-400'
+                              }`}>
+                                {layer.name}
+                              </span>
+                            </label>
+                          </div>
+                          
+                          {layer.enabled && (
+                            <div className="pl-5 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] text-slate-400 uppercase font-bold">Transparens</span>
+                                <span className="text-[9px] font-mono text-slate-500">{Math.round(layer.opacity * 100)}%</span>
+                              </div>
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="1" 
+                                step="0.05"
+                                value={layer.opacity}
+                                onChange={(e) => updateWmsLayer(layer.id, { opacity: parseFloat(e.target.value) })}
+                                className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
@@ -584,6 +712,19 @@ export default function App() {
               attribution={BASEMAPS[basemap].attribution}
             />
           )}
+
+          {/* WMS Layers */}
+          {wmsLayers.filter(l => l.enabled).map(layer => (
+            <WMSTileLayer
+              key={layer.id}
+              url={layer.url}
+              layers={layer.layers}
+              format={layer.format}
+              transparent={layer.transparent}
+              opacity={layer.opacity}
+              zIndex={10}
+            />
+          ))}
           
           <MapClickHandler 
             activeSource={activeSource} 
