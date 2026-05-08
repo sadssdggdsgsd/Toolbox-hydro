@@ -13,7 +13,8 @@ import {
   Polyline, 
   Polygon,
   Tooltip, 
-  useMapEvents 
+  useMapEvents,
+  GeoJSON
 } from 'react-leaflet';
 import L from 'leaflet';
 import { 
@@ -237,15 +238,100 @@ function MapClickHandler({
   return null;
 }
 
-interface WMSLayer {
+interface MapLayer {
   id: string;
   name: string;
   url: string;
-  layers: string;
-  format: string;
-  transparent: boolean;
+  type: 'wms' | 'feature';
+  layers?: string;
+  format?: string;
+  transparent?: boolean;
   opacity: number;
   enabled: boolean;
+}
+
+const SOIL_COLORS: Record<string, string> = {
+  'Morän': '#B0C4DE',
+  'Berg': '#FFC0CB',
+  'Lera': '#DEB887',
+  'Sand': '#F0E68C',
+  'Torv': '#8B4513',
+  'Gyttja': '#8FBC8F',
+  'Silt': '#D2B48C',
+  'Grus': '#A9A9A9',
+  'Isälvssediment': '#87CEEB',
+  'Postglacial sand': '#EEE8AA',
+  'Glacial lera': '#BC8F8F',
+};
+
+function JordarterAPILayer({ enabled, opacity, url }: { enabled: boolean; opacity: number; url: string; key?: string }) {
+  const [data, setData] = useState<any>(null);
+  
+  const map = useMapEvents({
+    moveend: () => {
+      if (enabled) {
+        fetchData();
+      }
+    }
+  });
+
+  const fetchData = async () => {
+    const zoom = map.getZoom();
+    // Only fetch at high zoom because the dataset is too heavy for the detailed maps
+    // For 1M map we can afford slightly lower zoom
+    const minZoom = url.includes('1miljon') ? 8 : 13;
+    
+    if (zoom < minZoom) {
+      setData(null);
+      return;
+    }
+
+    const bounds = map.getBounds();
+    const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+    const fetchUrl = `${url}?bbox=${bbox}&limit=500&f=json`;
+
+    try {
+      const response = await fetch(fetchUrl);
+      const geojson = await response.json();
+      setData(geojson);
+    } catch (err) {
+      console.error("Error fetching Jordarter API:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (enabled) {
+      fetchData();
+    } else {
+      setData(null);
+    }
+  }, [enabled, url]);
+
+  if (!enabled || !data) return null;
+
+  return (
+    <GeoJSON 
+      key={JSON.stringify(data.features?.[0]?.id || 'empty')}
+      data={data} 
+      style={(feature) => {
+        const text = feature?.properties?.jg2_tx || '';
+        let color = '#94a3b8';
+        for (const [key, val] of Object.entries(SOIL_COLORS)) {
+          if (text.includes(key)) {
+            color = val;
+            break;
+          }
+        }
+        return {
+          fillColor: color,
+          fillOpacity: opacity,
+          weight: 0.5,
+          color: '#64748b',
+          opacity: opacity * 0.5
+        };
+      }}
+    />
+  );
 }
 
 export default function App() {
@@ -257,25 +343,40 @@ export default function App() {
   const [basemap, setBasemap] = useState<BasemapKey>('orto');
   const [openTemplateMenu, setOpenTemplateMenu] = useState<string | null>(null);
   const [showLayerMenu, setShowLayerMenu] = useState(false);
-  const [wmsLayers, setWmsLayers] = useState<WMSLayer[]>([
+  const [wmsLayers, setWmsLayers] = useState<MapLayer[]>([
     {
-      id: 'berggrund',
-      name: 'Berggrund (SGU)',
-      url: 'https://resource.sgu.se/service/wms/130/berggrund_50-250k',
-      layers: 'Berggrund_50-250k',
-      format: 'image/png',
-      transparent: true,
+      id: 'jordarter-25-100',
+      name: 'Jordarter 1:25k - 1:100k (SGU)',
+      url: 'https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1/collections/grundlager/items',
+      type: 'feature',
       opacity: 0.5,
       enabled: false
     },
     {
-      id: 'jordarter',
-      name: 'Jordarter (SGU)',
-      url: 'https://resource.sgu.se/service/wms/130/jordarter_25k-1M',
-      layers: 'Jordarter_25k-1M',
+      id: 'jordarter-250',
+      name: 'Jordarter 1:250k (SGU)',
+      url: 'https://api.sgu.se/oppnadata/jordarter250k/ogc/features/v1/collections/grundlager/items',
+      type: 'feature',
+      opacity: 0.5,
+      enabled: false
+    },
+    {
+      id: 'jordarter-1m',
+      name: 'Jordarter 1:1miljon (SGU)',
+      url: 'https://api.sgu.se/oppnadata/jordarter1miljon/ogc/features/v1/collections/grundlager/items',
+      type: 'feature',
+      opacity: 0.5,
+      enabled: false
+    },
+    {
+      id: 'natura2000',
+      name: 'Natura 2000 (Länsstyrelsen/NV)',
+      url: 'https://xyz.lansstyrelsen.se/wms/sk_skyddadeomraden_wms_extern',
+      type: 'wms',
+      layers: 'Natura2000_SCI,Natura2000_SPA',
       format: 'image/png',
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.6,
       enabled: false
     }
   ]);
@@ -337,9 +438,9 @@ export default function App() {
     updateSource(name, { nodes: [] });
   };
 
-  const updateWmsLayer = (id: string, updates: Partial<WMSLayer>) => {
+  const updateWmsLayer = (id: string, updates: Partial<MapLayer>) => {
     setWmsLayers(prev => prev.map(layer => 
-      layer.id === id ? { ...layer, ...updates } : layer
+      layer.id === id ? { ...layer, ...updates } : layer as MapLayer
     ));
   };
 
@@ -713,18 +814,26 @@ export default function App() {
             />
           )}
 
-          {/* WMS Layers */}
-          {wmsLayers.filter(l => l.enabled).map(layer => (
-            <WMSTileLayer
-              key={layer.id}
-              url={layer.url}
-              layers={layer.layers}
-              format={layer.format}
-              transparent={layer.transparent}
-              opacity={layer.opacity}
-              zIndex={10}
-            />
-          ))}
+          {/* Map Overlays */}
+          {wmsLayers.filter(l => l.enabled).map(layer => {
+            if (layer.type === 'wms') {
+              return (
+                <WMSTileLayer
+                  key={layer.id}
+                  url={layer.url}
+                  layers={layer.layers}
+                  format={layer.format}
+                  transparent={layer.transparent}
+                  opacity={layer.opacity}
+                  zIndex={10}
+                />
+              );
+            }
+            if (layer.type === 'feature') {
+              return <JordarterAPILayer key={layer.id} url={layer.url} enabled={layer.enabled} opacity={layer.opacity} />;
+            }
+            return null;
+          })}
           
           <MapClickHandler 
             activeSource={activeSource} 
