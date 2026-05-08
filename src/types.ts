@@ -11,6 +11,10 @@ export interface Source {
   weight: number;
   nodes: [number, number][];
   enabled: boolean;
+  isSplit?: boolean;
+  splitNodeIndex?: number;
+  splitCost?: number;
+  splitWeight?: number;
 }
 
 export type ActiveAction = 'move' | 'node' | null;
@@ -19,10 +23,24 @@ export interface CostBreakdown {
   [sourceName: string]: number;
 }
 
+export interface DetailedSegment {
+  dist: number;
+  cost: number;
+  weight: number;
+}
+
+export interface DetailedBreakdown {
+  [sourceName: string]: {
+    total: number;
+    segments: DetailedSegment[];
+  };
+}
+
 export interface AnalysisResult {
   bestLoc: [number, number];
   minVal: number;
   breakdown: CostBreakdown;
+  detailedBreakdown?: DetailedBreakdown;
   contourData: {
     level: number;
     polygons: [number, number][][][];

@@ -32,7 +32,9 @@ import {
   Settings2,
   Trash2,
   Lock,
-  Unlock
+  Unlock,
+  Scissors,
+  Split
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
@@ -83,14 +85,18 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const INITIAL_SOURCES: Record<string, Source> = {
-  'Tekniskt vatten': {
+    'Tekniskt vatten': {
     name: 'Tekniskt vatten',
     loc: [62.559033, 16.791220],
     color: '#0ea5e9', // cyan-500
-    cost: 1500,
+    cost: 7000,
     weight: 1.0,
     nodes: [],
-    enabled: true
+    enabled: true,
+    isSplit: false,
+    splitNodeIndex: 0,
+    splitCost: 7000,
+    splitWeight: 1.0
   },
   'Vatten-VA': {
     name: 'Vatten-VA',
@@ -370,10 +376,21 @@ export default function App() {
     },
     {
       id: 'natura2000',
-      name: 'Natura 2000 (Länsstyrelsen/NV)',
-      url: 'https://xyz.lansstyrelsen.se/wms/sk_skyddadeomraden_wms_extern',
+      name: 'Natura 2000 (Länsstyrelsen)',
+      url: 'https://vic-wms.lansstyrelsen.se/arcgis/services/sk_skyddadeomraden_wms_extern/MapServer/WMSServer',
       type: 'wms',
-      layers: 'Natura2000_SCI,Natura2000_SPA',
+      layers: '6,7',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.6,
+      enabled: false
+    },
+    {
+      id: 'naturreservat',
+      name: 'Naturreservat (Länsstyrelsen)',
+      url: 'https://vic-wms.lansstyrelsen.se/arcgis/services/sk_skyddadeomraden_wms_extern/MapServer/WMSServer',
+      type: 'wms',
+      layers: '0',
       format: 'image/png',
       transparent: true,
       opacity: 0.6,
@@ -557,9 +574,29 @@ export default function App() {
                     >
                       <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${data.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </button>
-                  <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
+                    <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
+                  </div>
+                  {name === 'Tekniskt vatten' && data.enabled && (
+                    <button
+                      onClick={() => updateSource(name, { 
+                        isSplit: !data.isSplit,
+                        splitNodeIndex: data.nodes.length > 0 ? data.nodes.length - 1 : 0,
+                        splitCost: data.cost,
+                        splitWeight: data.weight
+                      })}
+                      className={`p-1.5 rounded-lg border transition-all relative group ${
+                        data.isSplit 
+                        ? 'bg-cyan-500 text-white border-cyan-500 shadow-md' 
+                        : 'bg-white border-slate-200 text-slate-400 hover:text-cyan-600 hover:border-cyan-200'
+                      }`}
+                    >
+                      <Scissors className="w-3.5 h-3.5" />
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[1000]">
+                        Split
+                      </div>
+                    </button>
+                  )}
                 </div>
-              </div>
 
               {/* Tools */}
                 {data.enabled && (
@@ -598,7 +635,23 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Inputs */}
+                {/* Segment headers and Split Settings for Tekniskt vatten */}
+                <AnimatePresence>
+                  {name === 'Tekniskt vatten' && data.isSplit && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mt-2 space-y-3"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        <span className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider">Segment A</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Inputs (Segment A) */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
                     <div className="flex justify-between items-center h-7 mb-1">
@@ -683,6 +736,71 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* Split Settings for Tekniskt vatten */}
+                <AnimatePresence>
+                  {name === 'Tekniskt vatten' && data.isSplit && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="mt-4 pt-4 border-t border-cyan-100 space-y-3 overflow-hidden"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#0369a1]" />
+                        <span className="text-[10px] font-bold text-[#0369a1] uppercase tracking-wider">Segment B</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[9px] text-[#0369a1] uppercase font-bold block mb-1">Kr/m</label>
+                          <input 
+                            type="number" 
+                            value={data.splitCost}
+                            step="500"
+                            onChange={(e) => updateSource(name, { splitCost: parseInt(e.target.value) || 0 })}
+                            className="w-full text-[11px] p-1.5 border-2 border-[#0369a1]/30 rounded bg-white font-medium focus:outline-none focus:ring-1 focus:ring-[#0369a1] focus:border-[#0369a1]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-[#0369a1] uppercase font-bold block mb-1">Vikt</label>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="range" 
+                              min="0.1" 
+                              max="1" 
+                              step="0.1"
+                              value={data.splitWeight}
+                              onChange={(e) => updateSource(name, { splitWeight: parseFloat(e.target.value) })}
+                              className="w-full h-1 my-2 rounded-lg appearance-none cursor-pointer bg-[#0369a1]/20 accent-[#0369a1] 
+                                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#991b1b] [&::-webkit-slider-thumb]:shadow-[0_0_5px_rgba(153,27,27,0.3)]
+                                [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-[#991b1b] [&::-moz-range-thumb]:shadow-[0_0_5px_rgba(153,27,27,0.3)]"
+                            />
+                            <span className="text-[10px] font-mono font-bold text-[#0369a1]">{data.splitWeight?.toFixed(1)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {data.nodes.length > 0 && (
+                        <div>
+                          <label className="text-[9px] text-slate-400 uppercase font-bold block mb-1">Välj Split Nod (0 - {data.nodes.length - 1})</label>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="range" 
+                              min="0" 
+                              max={data.nodes.length - 1} 
+                              step="1"
+                              value={data.splitNodeIndex}
+                              onChange={(e) => updateSource(name, { splitNodeIndex: parseInt(e.target.value) })}
+                              className="w-full h-1 my-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
+                            />
+                            <span className="text-[10px] font-mono font-bold text-slate-500">{data.splitNodeIndex}</span>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             );
           })}
@@ -878,20 +996,66 @@ export default function App() {
           {/* Source Paths and Markers */}
           {(Object.entries(sources) as [string, Source][]).map(([name, data]) => {
             const target = (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
-            const path = [data.loc, ...data.nodes, target];
-            return (
-              <React.Fragment key={name}>
-                {data.enabled && (
+            
+            // Calculate segments/path
+            const renderSegments = () => {
+              if (!data.enabled) return null;
+
+              if (data.isSplit && data.splitNodeIndex !== undefined && data.nodes.length > data.splitNodeIndex) {
+                const splitPoint = data.nodes[data.splitNodeIndex];
+                const segmentB = [data.loc, ...data.nodes.slice(0, data.splitNodeIndex + 1)];
+                const segmentA = [splitPoint, ...data.nodes.slice(data.splitNodeIndex + 1), target];
+                
+                return (
+                  <>
+                    <Polyline 
+                      positions={segmentB} 
+                      pathOptions={{ 
+                        color: '#0369a1', // sky-700
+                        weight: (testLocation && showTestLocation) ? 7 : 5, 
+                        opacity: (testLocation && showTestLocation) ? 0.9 : 0.7,
+                        dashArray: 'none'
+                      }} 
+                    />
+                    <Polyline 
+                      positions={segmentB} 
+                      pathOptions={{ 
+                        color: '#bae6fd', // sky-200 (core of double line)
+                        weight: (testLocation && showTestLocation) ? 2 : 1, 
+                        opacity: 1,
+                        dashArray: 'none'
+                      }} 
+                    />
+                    <Polyline 
+                      positions={segmentA} 
+                      pathOptions={{ 
+                        color: data.color, 
+                        weight: (testLocation && showTestLocation) ? 4 : 2, 
+                        opacity: (testLocation && showTestLocation) ? 0.8 : 0.6,
+                        dashArray: (testLocation && showTestLocation) ? 'none' : '8, 4'
+                      }} 
+                    />
+                  </>
+                );
+              } else {
+                const path = [data.loc, ...data.nodes, target];
+                return (
                   <Polyline 
                     positions={path} 
                     pathOptions={{ 
                       color: data.color, 
                       weight: (testLocation && showTestLocation) ? 4 : 2, 
-                      opacity: (testLocation && showTestLocation) ? 0.8 : 0.6, // Här ändrar du opaciteten för sweetspot-linjerna (0.6 = 60%)
+                      opacity: (testLocation && showTestLocation) ? 0.8 : 0.6,
                       dashArray: (testLocation && showTestLocation) ? 'none' : '8, 4'
                     }} 
                   />
-                )}
+                );
+              }
+            };
+
+            return (
+              <React.Fragment key={name}>
+                {renderSegments()}
                 <Marker 
                   position={data.loc}
                   draggable={true}
@@ -931,9 +1095,9 @@ export default function App() {
                     }}
                     icon={L.divIcon({
                       className: 'node-marker',
-                      html: `<div style="background-color: #fff; opacity: ${data.enabled ? 0.8 : 0.1}; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #000;"></div>`,
-                      iconSize: [10, 10],
-                      iconAnchor: [5, 5]
+                      html: `<div style="background-color: #fff; opacity: ${data.enabled ? (data.isSplit && ni === data.splitNodeIndex ? 1 : 0.8) : 0.1}; width: ${data.isSplit && ni === data.splitNodeIndex ? '14px' : '10px'}; height: ${data.isSplit && ni === data.splitNodeIndex ? '14px' : '10px'}; border-radius: 50%; border: ${data.isSplit && ni === data.splitNodeIndex ? '3px solid #991b1b' : '1px solid #000'}; box-shadow: ${data.isSplit && ni === data.splitNodeIndex ? '0 0 8px rgba(153, 27, 27, 0.5)' : 'none'};"></div>`,
+                      iconSize: data.isSplit && ni === data.splitNodeIndex ? [14, 14] : [10, 10],
+                      iconAnchor: data.isSplit && ni === data.splitNodeIndex ? [7, 7] : [5, 5]
                     })}
                   />
                 ))}
@@ -1008,28 +1172,58 @@ export default function App() {
                   <MapPin className="w-4 h-4 text-[#4778A5]" fill="#4778A520" />
                   <span className="text-slate-800 font-black tracking-tight text-[13px] uppercase">Vald plats</span>
                 </div>
-                <div className="font-mono font-black text-[#4778A5] text-lg bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
+                <div className="font-mono font-black text-[#4778A5] text-base bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
                   {Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr
                 </div>
               </div>
               
               <div className="space-y-2">
-                {Object.entries(testLocationResult.breakdown).map(([name, val]) => (
-                  <div key={name} className="flex justify-between items-center bg-slate-50 p-2.5 px-3 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sources[name].color }} />
-                      <span className="text-[11px] font-bold text-slate-600">{name}</span>
+                {Object.entries(testLocationResult.breakdown).map(([name, val]) => {
+                  const detailed = testLocationResult.detailedBreakdown?.[name];
+                  const hasSplit = detailed && detailed.segments.length > 1;
+                  
+                  return (
+                    <div key={name} className="space-y-1">
+                      <div className="flex justify-between items-center bg-slate-50 p-2.5 px-3 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sources[name].color }} />
+                          <span className="text-[11px] font-bold text-slate-600">{name}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          {!hasSplit && (
+                            <span className="text-[11px] font-mono font-medium text-slate-400">
+                              {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
+                            </span>
+                          )}
+                          <span className="text-[12px] font-mono font-black text-slate-900">
+                            {Math.round(val as number).toLocaleString('sv-SE')} kr
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {hasSplit && (
+                        <div className="ml-4 space-y-1">
+                          {detailed.segments.map((seg, si) => (
+                            <div key={si} className="flex justify-between items-center bg-slate-50/50 p-1.5 px-3 rounded-lg border border-slate-50">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-1.5 h-1.5 rounded-full ${si === 1 ? 'bg-cyan-800' : 'bg-cyan-400'}`} />
+                                <span className="text-[10px] font-medium text-slate-500">
+                                  {si === 1 ? 'Segment B' : 'Segment A'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-mono text-slate-400">{Math.round(seg.dist).toLocaleString('sv-SE')} m</span>
+                                <span className="text-[10px] font-mono font-bold text-slate-700">
+                                  {Math.round(seg.dist * seg.cost * seg.weight).toLocaleString('sv-SE')} kr
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-[11px] font-mono font-medium text-slate-400">
-                        {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
-                      </span>
-                      <span className="text-[12px] font-mono font-black text-slate-900">
-                        {Math.round(val as number).toLocaleString('sv-SE')} kr
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           )}
@@ -1049,7 +1243,7 @@ export default function App() {
                   </div>
                   <span className="text-white font-black tracking-tight text-[13px] uppercase">Sweet spot</span>
                 </div>
-                <span className="font-mono font-black text-white text-lg bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                <span className="font-mono font-black text-white text-base bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                   {Math.round(analysis.minVal).toLocaleString('sv-SE')} kr
                 </span>
               </div>

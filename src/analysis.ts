@@ -15,24 +15,62 @@ export function getDistance(p1: [number, number], p2: [number, number]): number 
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
-export function getCostAt(sources: Record<string, Source>, target: [number, number]): { total: number; breakdown: CostBreakdown } {
+export function getCostAt(sources: Record<string, Source>, target: [number, number]): { total: number; breakdown: CostBreakdown; detailedBreakdown?: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> } {
   const sourceList = Object.values(sources).filter(s => s.enabled);
   let totalCost = 0;
   const breakdown: CostBreakdown = {};
+  const detailedBreakdown: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> = {};
 
   for (const source of sourceList) {
-    let fixedDist = 0;
-    let currP = source.loc;
-    for (const node of source.nodes) {
-      fixedDist += getDistance(currP, node);
-      currP = node;
+    if (source.isSplit && source.splitNodeIndex !== undefined && source.nodes.length > source.splitNodeIndex) {
+      // Segment B: Source -> ... -> SplitPoint (Dark Blue)
+      let distB = 0;
+      let currB = source.loc;
+      for (let i = 0; i <= source.splitNodeIndex; i++) {
+        distB += getDistance(currB, source.nodes[i]);
+        currB = source.nodes[i];
+      }
+      const costB = distB * (source.splitCost ?? 0) * (source.splitWeight ?? 0);
+
+      // Segment A: SplitPoint -> ... -> Target (Light Blue)
+      let distA = 0;
+      let currA = source.nodes[source.splitNodeIndex];
+      for (let i = source.splitNodeIndex + 1; i < source.nodes.length; i++) {
+        distA += getDistance(currA, source.nodes[i]);
+        currA = source.nodes[i];
+      }
+      distA += getDistance(currA, target);
+      const costA = distA * source.cost * source.weight;
+
+      const totalSourceCost = costA + costB;
+      totalCost += totalSourceCost;
+      breakdown[source.name] = totalSourceCost;
+      detailedBreakdown[source.name] = {
+        total: totalSourceCost,
+        segments: [
+          { dist: distA, cost: source.cost, weight: source.weight },
+          { dist: distB, cost: source.splitCost ?? 0, weight: source.splitWeight ?? 0 }
+        ]
+      };
+    } else {
+      let fixedDist = 0;
+      let currP = source.loc;
+      for (const node of source.nodes) {
+        fixedDist += getDistance(currP, node);
+        currP = node;
+      }
+      const dist = fixedDist + getDistance(currP, target);
+      const sourceCost = dist * source.cost * source.weight;
+      totalCost += sourceCost;
+      breakdown[source.name] = sourceCost;
+      detailedBreakdown[source.name] = {
+        total: sourceCost,
+        segments: [{ dist, cost: source.cost, weight: source.weight }]
+      };
     }
-    const sourceCost = (fixedDist + getDistance(currP, target)) * source.cost * source.weight;
-    totalCost += sourceCost;
-    breakdown[source.name] = sourceCost;
   }
 
-  return { total: totalCost, breakdown };
+  return { total: totalCost, breakdown, detailedBreakdown };
 }
 
 export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
@@ -126,12 +164,13 @@ export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
 
   const contourData = contourDataMapper(contours, colors, thresholds, getLat, getLon);
 
-  const { total: finalMinCost, breakdown } = getCostAt(sources, bestLoc);
+  const { total: finalMinCost, breakdown, detailedBreakdown } = getCostAt(sources, bestLoc);
 
   return {
     bestLoc,
     minVal: finalMinCost,
     breakdown,
+    detailedBreakdown,
     contourData,
     thresholds: {
       inner: -p999,
