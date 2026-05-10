@@ -610,6 +610,7 @@ export default function App() {
   ]);
   
   // Visibility states
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [isRelocatingSweetSpot, setIsRelocatingSweetSpot] = useState(false);
 
@@ -1268,6 +1269,7 @@ export default function App() {
           zoom={13} 
           className="h-full w-full"
           zoomControl={false}
+          ref={setMapInstance}
         >
           {/* Basemap Rendering */}
           {BASEMAPS[basemap].type === 'tile' && (
@@ -1583,32 +1585,38 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               className="bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white pointer-events-auto"
             >
-              <div className="flex flex-col items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
+              <div className={`${Object.keys(scenarios).length === 1 ? 'flex justify-between' : 'flex flex-col items-center'} items-center gap-3 mb-6 pb-4 border-b border-slate-100`}>
+                <div className="flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-[#4778A5]" fill="#4778A520" />
                   <span className="text-slate-800 font-black tracking-tight text-[13px] uppercase">Vald plats</span>
                 </div>
-                <div className="flex items-center justify-center gap-1.5 w-full">
-                  {Object.keys(scenarios).sort().map(numStr => {
-                    const num = parseInt(numStr);
-                    const isActive = num === activeScenario;
-                    const result = allScenariosAtTestLocation?.[num];
-                    if (!result) return null;
-                    
-                    return (
-                      <div 
-                        key={num}
-                        className={`font-mono font-black transition-all shrink-0 ${
-                          isActive 
-                          ? 'text-[#4778A5] text-[13px] bg-[#4778A5]/10 px-3 py-1.5 rounded-lg border border-[#4778A5]/20 shadow-sm' 
-                          : 'text-[#4778A5]/40 text-[9px] px-2 py-1 border border-[#4778A5]/5 rounded-md'
-                        }`}
-                      >
-                        {Math.round(result.total).toLocaleString('sv-SE')} kr
-                      </div>
-                    );
-                  })}
-                </div>
+                {Object.keys(scenarios).length === 1 ? (
+                  <div className="font-mono font-black text-[#4778A5] text-[13px] bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
+                    {Math.round(allScenariosAtTestLocation?.[activeScenario]?.total || 0).toLocaleString('sv-SE')} kr
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-1.5 w-full">
+                    {Object.keys(scenarios).sort().map(numStr => {
+                      const num = parseInt(numStr);
+                      const isActive = num === activeScenario;
+                      const result = allScenariosAtTestLocation?.[num];
+                      if (!result) return null;
+                      
+                      return (
+                        <div 
+                          key={num}
+                          className={`font-mono font-black transition-all shrink-0 ${
+                            isActive 
+                            ? 'text-[#4778A5] text-[13px] bg-[#4778A5]/10 px-3 py-1.5 rounded-lg border border-[#4778A5]/20 shadow-sm' 
+                            : 'text-[#4778A5]/40 text-[9px] px-2 py-1 border border-[#4778A5]/5 rounded-md'
+                          }`}
+                        >
+                          {Math.round(result.total).toLocaleString('sv-SE')} kr
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -1708,7 +1716,7 @@ export default function App() {
                   <span className="text-white font-black tracking-tight text-[13px] uppercase">Sweet spot</span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <div className="font-mono font-black text-white text-base bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                  <div className="font-mono font-black text-white text-[13px] bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                     {Math.round(analysis.minVal).toLocaleString('sv-SE')} kr
                   </div>
                 </div>
@@ -1727,9 +1735,9 @@ export default function App() {
                       style={{ backgroundColor: item.color }} 
                     />
                     <div className="relative z-10">
-                      <div className="text-white text-[11px] font-bold uppercase tracking-widest">{item.label}</div>
+                      <div className="text-white text-[10px] font-bold uppercase tracking-widest">{item.label}</div>
                     </div>
-                    <span className="relative z-10 font-mono font-black text-white text-[12px]">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
+                    <span className="relative z-10 font-mono font-black text-white text-[11px]">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
               </div>
@@ -1740,8 +1748,18 @@ export default function App() {
         {/* Map Controls */}
         <div className="absolute bottom-8 right-8 z-[1000] flex flex-col gap-2 items-end">
           <div className="flex flex-col gap-2">
-            <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100">+</button>
-            <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100">-</button>
+            <button 
+              onClick={() => mapInstance?.zoomIn()}
+              className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => mapInstance?.zoomOut()}
+              className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100"
+            >
+              <Minus className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
