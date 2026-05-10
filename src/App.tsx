@@ -23,6 +23,9 @@ import {
   RotateCcw,
   Info,
   MapPin,
+  Map,
+  LandPlot,
+  Minus,
   Layers,
   Undo2,
   X,
@@ -153,7 +156,93 @@ const COST_TEMPLATES: Record<string, { label: string; subLabel: string; costLabe
   ]
 };
 
-const getSourceTheme = (name: string) => {
+const CUSTOM_THEMES = [
+  {
+    id: 'orange',
+    color: '#ea580c',
+    card: 'border-orange-100 bg-orange-50/30',
+    title: 'text-orange-700',
+    action: 'bg-orange-600',
+    track: 'bg-orange-200',
+    btnBorder: 'border-orange-200',
+    btnText: 'text-orange-600',
+    btnHover: 'hover:bg-orange-50',
+    costTagBg: 'bg-orange-50',
+    ring: 'focus:ring-orange-200'
+  },
+  {
+    id: 'pink',
+    color: '#db2777',
+    card: 'border-pink-100 bg-pink-50/30',
+    title: 'text-pink-700',
+    action: 'bg-pink-600',
+    track: 'bg-pink-200',
+    btnBorder: 'border-pink-200',
+    btnText: 'text-pink-600',
+    btnHover: 'hover:bg-pink-50',
+    costTagBg: 'bg-pink-50',
+    ring: 'focus:ring-pink-200'
+  },
+  {
+    id: 'emerald',
+    color: '#059669',
+    card: 'border-emerald-100 bg-emerald-50/30',
+    title: 'text-emerald-700',
+    action: 'bg-emerald-600',
+    track: 'bg-emerald-200',
+    btnBorder: 'border-emerald-200',
+    btnText: 'text-emerald-600',
+    btnHover: 'hover:bg-emerald-50',
+    costTagBg: 'bg-emerald-50',
+    ring: 'focus:ring-emerald-200'
+  },
+  {
+    id: 'amber',
+    color: '#d97706',
+    card: 'border-amber-100 bg-amber-50/30',
+    title: 'text-amber-700',
+    action: 'bg-amber-600',
+    track: 'bg-amber-200',
+    btnBorder: 'border-amber-200',
+    btnText: 'text-amber-600',
+    btnHover: 'hover:bg-amber-50',
+    costTagBg: 'bg-amber-50',
+    ring: 'focus:ring-amber-200'
+  },
+  {
+    id: 'fuchsia',
+    color: '#c026d3',
+    card: 'border-fuchsia-100 bg-fuchsia-50/30',
+    title: 'text-fuchsia-700',
+    action: 'bg-fuchsia-600',
+    track: 'bg-fuchsia-200',
+    btnBorder: 'border-fuchsia-200',
+    btnText: 'text-fuchsia-600',
+    btnHover: 'hover:bg-fuchsia-100',
+    costTagBg: 'bg-fuchsia-50',
+    ring: 'focus:ring-fuchsia-200'
+  },
+  {
+    id: 'rose',
+    color: '#e11d48',
+    card: 'border-rose-100 bg-rose-50/30',
+    title: 'text-rose-700',
+    action: 'bg-rose-600',
+    track: 'bg-rose-200',
+    btnBorder: 'border-rose-200',
+    btnText: 'text-rose-600',
+    btnHover: 'hover:bg-rose-50',
+    costTagBg: 'bg-rose-50',
+    ring: 'focus:ring-rose-200'
+  }
+];
+
+const getSourceTheme = (name: string, data?: Source) => {
+  if (data?.isCustom) {
+    // Find theme by color
+    const theme = CUSTOM_THEMES.find(t => t.color === data.color) || CUSTOM_THEMES[0];
+    return theme;
+  }
   switch (name) {
     case 'Tekniskt vatten':
       return {
@@ -340,11 +429,133 @@ function JordarterAPILayer({ enabled, opacity, url }: { enabled: boolean; opacit
   );
 }
 
+interface ScenarioData {
+  sources: Record<string, Source>;
+  testLocation: [number, number] | null;
+  showTestLocation: boolean;
+}
+
 export default function App() {
-  const [sources, setSources] = useState<Record<string, Source>>(INITIAL_SOURCES);
+  const [scenarios, setScenarios] = useState<Record<number, ScenarioData>>({ 
+    1: { 
+      sources: INITIAL_SOURCES, 
+      testLocation: null, 
+      showTestLocation: false 
+    } 
+  });
+  const [activeScenario, setActiveScenario] = useState<number>(1);
+  
+  const currentScenario = scenarios[activeScenario] || { sources: {}, testLocation: null, showTestLocation: false };
+  const sources = currentScenario.sources;
+  const testLocation = currentScenario.testLocation;
+  const showTestLocation = currentScenario.showTestLocation;
+
+  const setSources = (updater: Record<string, Source> | ((prev: Record<string, Source>) => Record<string, Source>)) => {
+    setScenarios(prev => ({
+      ...prev,
+      [activeScenario]: {
+        ...prev[activeScenario],
+        sources: typeof updater === 'function' ? updater(prev[activeScenario]?.sources || {}) : updater
+      }
+    }));
+  };
+
+  const setTestLocation = (loc: [number, number] | null) => {
+    setScenarios(prev => ({
+      ...prev,
+      [activeScenario]: {
+        ...prev[activeScenario],
+        testLocation: loc
+      }
+    }));
+  };
+
+  const setShowTestLocation = (show: boolean) => {
+    setScenarios(prev => ({
+      ...prev,
+      [activeScenario]: {
+        ...prev[activeScenario],
+        showTestLocation: show
+      }
+    }));
+  };
+
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
-  const [testLocation, setTestLocation] = useState<[number, number] | null>(null);
+
+  const removeScenario = (num: number) => {
+    if (num === 1) return;
+    setScenarios(prev => {
+      const next = { ...prev };
+      delete next[num];
+      // If we deleted active, move back
+      if (activeScenario === num) {
+        setActiveScenario(num - 1);
+      }
+      return next;
+    });
+  };
+
+  const analysis = useMemo(() => runAnalysis(sources), [sources]);
+
+  const addScenario = () => {
+    const nextScenario = Object.keys(scenarios).length + 1;
+    if (nextScenario > 3) return;
+
+    // Use current best location as reference for new scenario
+    const currentBest = analysis.bestLoc;
+    const baseAngle = 45 * Math.PI / 180;
+    
+    // 1. Calculate scenario 100m ref point @ 45deg (bearing 45)
+    // Lat = Y = Distance * cos(bearing), Lon = X = Distance * sin(bearing)
+    const refDist = 100;
+    const refLat = currentBest[0] + (refDist * Math.cos(baseAngle)) / 111111;
+    const refLon = currentBest[1] + (refDist * Math.sin(baseAngle)) / (111111 * Math.cos(currentBest[0] * Math.PI / 180));
+    const scenRef: [number, number] = [refLat, refLon];
+
+    const newSources: Record<string, Source> = {};
+    const entries = Object.entries(INITIAL_SOURCES);
+    const sourceCount = entries.length;
+
+    entries.forEach(([id, source], idx) => {
+      // 2. Distribute sources 3000m from scenRef
+      // Angles: 45, 105, 165, ...
+      const sourceAngle = (45 + idx * (360 / sourceCount)) * Math.PI / 180;
+      const sDist = 3000;
+      const sLat = scenRef[0] + (sDist * Math.cos(sourceAngle)) / 111111;
+      const sLon = scenRef[1] + (sDist * Math.sin(sourceAngle)) / (111111 * Math.cos(scenRef[0] * Math.PI / 180));
+      
+      newSources[id] = {
+        ...source,
+        loc: [sLat, sLon],
+        nodes: []
+      };
+    });
+
+    setScenarios(prev => ({
+      ...prev,
+      [nextScenario]: {
+        sources: newSources,
+        testLocation: testLocation, // Inherit current test location
+        showTestLocation: showTestLocation
+      }
+    }));
+    setActiveScenario(nextScenario);
+  };
+
+  const getComparisonScenario = () => {
+    if (activeScenario === 1) return null;
+    return activeScenario - 1;
+  };
+
+  const comparisonScenario = getComparisonScenario();
+  const comparisonSources = comparisonScenario ? scenarios[comparisonScenario]?.sources : null;
+  
+  // Analysis for comparison scenario
+  const comparisonAnalysis = useMemo(() => 
+    comparisonSources ? runAnalysis(comparisonSources) : null
+  , [comparisonSources]);
+
   const [placingTestLocation, setPlacingTestLocation] = useState(false);
   const [basemap, setBasemap] = useState<BasemapKey>('orto');
   const [openTemplateMenu, setOpenTemplateMenu] = useState<string | null>(null);
@@ -400,15 +611,14 @@ export default function App() {
   
   // Visibility states
   const [showSweetSpot, setShowSweetSpot] = useState(true);
-  const [showTestLocation, setShowTestLocation] = useState(true);
   const [isRelocatingSweetSpot, setIsRelocatingSweetSpot] = useState(false);
 
-  const analysis = useMemo(() => runAnalysis(sources), [sources]);
+  // Remove duplicate analysis declaration
 
   const sourceDistances = useMemo(() => {
     const dists: Record<string, number> = {};
     const target = testLocation || analysis.bestLoc;
-    (Object.entries(sources) as [string, Source][]).forEach(([name, data]) => {
+    (Object.entries(sources) as [string, Source][]).forEach(([id, data]) => {
       let dist = 0;
       let curr = data.loc;
       for (const node of data.nodes) {
@@ -416,7 +626,7 @@ export default function App() {
         curr = node;
       }
       dist += getDistance(curr, target);
-      dists[name] = dist;
+      dists[id] = dist;
     });
     return dists;
   }, [sources, analysis.bestLoc, testLocation]);
@@ -425,6 +635,16 @@ export default function App() {
     if (!testLocation) return null;
     return getCostAt(sources, testLocation);
   }, [sources, testLocation]);
+
+  const allScenariosAtTestLocation = useMemo(() => {
+    if (!testLocation) return null;
+    const results: Record<number, ReturnType<typeof getCostAt>> = {};
+    Object.keys(scenarios).forEach(numStr => {
+      const num = parseInt(numStr);
+      results[num] = getCostAt(scenarios[num].sources, testLocation);
+    });
+    return results;
+  }, [scenarios, testLocation]);
 
   const updateSource = (name: string, updates: Partial<Source>) => {
     setSources(prev => ({
@@ -459,6 +679,64 @@ export default function App() {
     setWmsLayers(prev => prev.map(layer => 
       layer.id === id ? { ...layer, ...updates } : layer as MapLayer
     ));
+  };
+
+  const nextTheme = useMemo(() => {
+    const customSources = (Object.values(sources) as Source[]).filter(s => s.isCustom);
+    const themeIndex = customSources.length % CUSTOM_THEMES.length;
+    return CUSTOM_THEMES[themeIndex];
+  }, [sources]);
+
+  const addCustomSource = () => {
+    const customSources = (Object.values(sources) as Source[]).filter(s => s.isCustom);
+    if (customSources.length >= 3) return;
+
+    const id = `custom-${Date.now()}`;
+    const theme = nextTheme;
+
+    // Position 3000m at 90, 180, 270 degrees from sweetspot
+    const currentLat = analysis.bestLoc[0];
+    const currentLon = analysis.bestLoc[1];
+    
+    const dLat = 3000 / 111320;
+    const dLon = 3000 / (111320 * Math.cos(currentLat * Math.PI / 180));
+    
+    let offset: [number, number] = [0, 0];
+    const count = customSources.length; // 0, 1, 2
+    
+    if (count === 0) { // 90 deg -> East
+      offset = [0, dLon];
+    } else if (count === 1) { // 180 deg -> South
+      offset = [-dLat, 0];
+    } else if (count === 2) { // 270 deg -> West
+      offset = [0, -dLon];
+    }
+
+    const newSource: Source = {
+      name: 'Ny källa',
+      loc: [currentLat + offset[0], currentLon + offset[1]],
+      color: theme.color,
+      cost: 2000,
+      weight: 1.0,
+      nodes: [],
+      enabled: true,
+      isCustom: true
+    };
+    setSources(prev => ({ ...prev, [id]: newSource }));
+    setActiveSource(id);
+    setActiveAction('move');
+  };
+
+  const removeSource = (id: string) => {
+    setSources(prev => {
+      const next = { ...prev };
+      delete next[id];
+      if (activeSource === id) {
+        setActiveSource(null);
+        setActiveAction(null);
+      }
+      return next;
+    });
   };
 
   const handleMapAction = (latlng: [number, number]) => {
@@ -496,27 +774,12 @@ export default function App() {
       {/* Sidebar */}
       <aside className="w-80 h-full border-r border-slate-200 bg-white flex flex-col z-[1001] shadow-lg">
         <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 shrink-0">
               Sweetspotfinder
             </h1>
-            <div className="flex gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
-              {/* Relocate Everything Button */}
-              <button 
-                onClick={() => {
-                  setIsRelocatingSweetSpot(!isRelocatingSweetSpot);
-                  setPlacingTestLocation(false);
-                }}
-                className={`p-2 rounded-xl transition-all group relative ${
-                  isRelocatingSweetSpot 
-                    ? 'bg-[#6366f1] text-white shadow-lg ring-2 ring-indigo-100' 
-                    : 'text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm'
-                }`}
-                title="Flytta allt"
-              >
-                <Move className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
-              </button>
-
+            <div className="flex-1 flex justify-center">
+              <div className="flex gap-1 p-0.5">
               {/* Toggle Sweet Spot Button */}
               <button 
                 onClick={() => setShowSweetSpot(!showSweetSpot)}
@@ -533,16 +796,17 @@ export default function App() {
               {/* Manual/Test Location Button */}
               <button 
                 onClick={() => {
-                  if (testLocation) {
-                    setShowTestLocation(!showTestLocation);
+                  if (placingTestLocation || showTestLocation) {
                     setPlacingTestLocation(false);
+                    setShowTestLocation(false);
                   } else {
-                    setPlacingTestLocation(!placingTestLocation);
+                    setPlacingTestLocation(true);
+                    setShowTestLocation(true);
                   }
                   setIsRelocatingSweetSpot(false);
                 }}
                 className={`p-2 rounded-xl transition-all group relative ${
-                  (testLocation && showTestLocation) || placingTestLocation
+                  (showTestLocation || placingTestLocation)
                     ? 'bg-[#4778A5] text-white shadow-lg ring-2 ring-blue-100' 
                     : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
                 }`}
@@ -550,260 +814,342 @@ export default function App() {
               >
                 <MapPin className={`w-5 h-5 ${placingTestLocation ? 'animate-pulse' : ''}`} />
               </button>
+
+              {/* Relocate Everything Button */}
+              <button 
+                onClick={() => {
+                  setIsRelocatingSweetSpot(!isRelocatingSweetSpot);
+                  setPlacingTestLocation(false);
+                }}
+                className={`p-2 rounded-xl transition-all group relative ${
+                  isRelocatingSweetSpot 
+                    ? 'bg-[#6366f1] text-white shadow-lg ring-2 ring-indigo-100' 
+                    : 'text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm'
+                }`}
+                title="Flytta allt"
+              >
+                <Move className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          {(Object.entries(sources) as [string, Source][]).map(([name, data]) => {
-            const theme = getSourceTheme(name);
-            return (
-              <motion.div 
-                key={name}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-xl border-2 transition-all ${theme.card} ${
-                  activeSource === name ? 'ring-2 ring-offset-2 ring-slate-200' : ''
-                } ${!data.enabled ? 'opacity-50 saturate-0' : ''}`}
+          {/* Scenario Selection */}
+          <div className="flex items-center justify-end gap-1 mb-4">
+            {Object.keys(scenarios).sort().map(numStr => {
+              const num = parseInt(numStr);
+              return (
+                <div key={num} className="relative group/scenario">
+                  <button 
+                    onClick={() => setActiveScenario(num)}
+                    className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black transition-all ${
+                      activeScenario === num 
+                      ? 'bg-slate-800 text-white shadow-sm' 
+                      : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                  {num > 1 && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); removeScenario(num); }}
+                      className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/scenario:opacity-100 transition-opacity transform hover:scale-110 z-10"
+                    >
+                      <X className="w-1.5 h-1.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {Object.keys(scenarios).length < 3 && (
+              <button 
+                onClick={addScenario}
+                className="w-4 h-4 rounded flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-slate-200 transition-all ml-1"
+                title="Lägg till alternativ"
               >
-                <div className="flex items-center justify-between mb-3 border-b border-black/5 pb-2">
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => updateSource(name, { enabled: !data.enabled })}
-                      className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${data.enabled ? theme.action : 'bg-slate-300'}`}
-                    >
-                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${data.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </button>
-                    <h3 className={`font-bold text-sm ${theme.title}`}>{name}</h3>
-                  </div>
-                  {name === 'Tekniskt vatten' && data.enabled && (
-                    <button
-                      onClick={() => updateSource(name, { 
-                        isSplit: !data.isSplit,
-                        splitNodeIndex: data.nodes.length > 0 ? data.nodes.length - 1 : 0,
-                        splitCost: data.cost,
-                        splitWeight: data.weight
-                      })}
-                      className={`p-1.5 rounded-lg border transition-all relative group ${
-                        data.isSplit 
-                        ? 'bg-cyan-500 text-white border-cyan-500 shadow-md' 
-                        : 'bg-white border-slate-200 text-slate-400 hover:text-cyan-600 hover:border-cyan-200'
-                      }`}
-                    >
-                      <Scissors className="w-3.5 h-3.5" />
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[1000]">
-                        Split
-                      </div>
-                    </button>
-                  )}
-                </div>
+                <Plus className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
 
-              {/* Tools */}
-                {data.enabled && (
-                  <div className="flex gap-1 mb-4">
-                    <button
-                      onClick={() => {
-                        if (activeSource === name && activeAction === 'node') {
-                          setActiveSource(null);
-                          setActiveAction(null);
-                        } else {
-                          setActiveSource(name);
-                          setActiveAction('node');
-                        }
-                      }}
-                      className={`flex-[2] py-1 text-[9px] font-bold rounded uppercase tracking-tighter transition-all ${
-                        activeSource === name && activeAction === 'node'
-                          ? `${theme.action} text-white shadow-sm`
-                          : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300'
-                      }`}
-                    >
-                      + Noder
-                    </button>
-                    <button 
-                      onClick={() => undoNode(name)}
-                      disabled={data.nodes.length === 0}
-                      className={`flex-1 py-1 text-[9px] bg-white border rounded font-bold transition-colors disabled:opacity-30 ${theme.btnBorder} ${theme.btnText} ${theme.btnHover}`}
-                    >
-                      <Undo2 className="w-3 h-3 mx-auto" />
-                    </button>
-                    <button 
-                      onClick={() => clearNodes(name)}
-                      className={`flex-1 py-1 text-[9px] bg-white border border-slate-200 rounded font-bold transition-colors text-red-500 hover:bg-red-50`}
-                    >
-                      Rensa
-                    </button>
-                  </div>
-                )}
+          <div className="space-y-6">
+            {/* Symmetric Source Rows */}
+            {(Object.entries(sources) as [string, Source][]).map(([id, data]) => {
+              const allScenarioNums = Object.keys(scenarios).map(n => parseInt(n)).sort();
+              const activeCount = allScenarioNums.length;
 
-                {/* Segment headers and Split Settings for Tekniskt vatten */}
-                <AnimatePresence>
-                  {name === 'Tekniskt vatten' && data.isSplit && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-2 space-y-3"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                        <span className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider">Segment A</span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              const renderSourceCard = (sid: string, sdata: Source, scenarioNum: number, isActive: boolean) => {
+                const stheme = getSourceTheme(sdata.name, sdata);
+                
+                // Dynamic flex weights based on active count requested: 
+                // 2 scenarios -> active is 2x larger (flex 2:1)
+                // 3 scenarios -> active is 200% larger (3x)
+                const inactiveFlexVal = 1;
+                const activeFlexVal = activeCount === 1 ? 1 : (activeCount === 2 ? 2 : 3);
+                const currentFlex = isActive ? activeFlexVal : inactiveFlexVal;
 
-                {/* Inputs (Segment A) */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="relative">
-                    <div className="flex justify-between items-center h-7 mb-1">
-                      <label className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Kr/m</label>
-                      {COST_TEMPLATES[name] && (
-                        <div className="relative">
-                          <button 
-                            onClick={() => setOpenTemplateMenu(openTemplateMenu === name ? null : name)}
-                            className={`p-1 rounded-md border transition-all shadow-sm ${
-                              openTemplateMenu === name 
-                              ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-inner' 
-                              : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                            }`}
-                            title="Välj schablonkostnad"
-                          >
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openTemplateMenu === name ? 'rotate-180' : ''}`} />
-                          </button>
-                          
-                          <AnimatePresence>
-                            {openTemplateMenu === name && (
-                              <motion.div 
-                                initial={{ opacity: 0, y: 5, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                                className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden p-1.5"
-                              >
-                                <div className="px-2 py-1.5 mb-1.5 border-b border-slate-50">
-                                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Välj schablon</div>
-                                </div>
-                                {COST_TEMPLATES[name].map((tpl, i) => (
-                                  <button
-                                    key={i}
-                                    onClick={() => {
-                                      updateSource(name, { cost: tpl.value });
-                                      setOpenTemplateMenu(null);
-                                    }}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-all group ${theme.btnHover}`}
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <div className={`w-1 h-10 rounded-full mt-0.5 shrink-0 ${theme.action} opacity-20 group-hover:opacity-100 transition-opacity`} />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start gap-2 mb-1">
-                                          <div className={`text-[11px] font-bold ${theme.title} transition-colors flex-1`}>{tpl.label}</div>
-                                          <div className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${theme.title} ${theme.costTagBg}/50 transition-all whitespace-nowrap border ${theme.btnBorder} border-opacity-30`}>
-                                            {tpl.costLabel}
-                                          </div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-500 font-medium group-hover:text-slate-700">{tpl.subLabel}</div>
-                                      </div>
-                                    </div>
-                                  </button>
-                                ))}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      )}
-                    </div>
-                    <input 
-                      type="number" 
-                      value={data.cost}
-                      step="500"
-                      onChange={(e) => updateSource(name, { cost: parseInt(e.target.value) || 0 })}
-                      className="w-full text-xs p-1.5 border border-slate-200 rounded bg-white font-medium focus:outline-none focus:ring-1 focus:ring-slate-300"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center h-7 mb-1">
-                      <label className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Vikt</label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <input 
-                        type="range" 
-                        min="0.1" 
-                        max="1" 
-                        step="0.1"
-                        value={data.weight}
-                        onChange={(e) => updateSource(name, { weight: parseFloat(e.target.value) })}
-                        className={`w-full h-1 my-2 rounded-lg appearance-none cursor-pointer ${theme.track}`}
-                      />
-                      <span className="text-[10px] font-mono font-bold text-slate-500">{data.weight.toFixed(1)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Split Settings for Tekniskt vatten */}
-                <AnimatePresence>
-                  {name === 'Tekniskt vatten' && data.isSplit && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="mt-4 pt-4 border-t border-cyan-100 space-y-3 overflow-hidden"
+                if (!isActive) {
+                  return (
+                    <div 
+                      key={`${sid}-${scenarioNum}`}
+                      style={{ flex: currentFlex }}
+                      className={`rounded-lg border bg-white/30 opacity-40 transition-all min-w-0 flex flex-col overflow-hidden shadow-sm ${stheme.card}`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#0369a1]" />
-                        <span className="text-[10px] font-bold text-[#0369a1] uppercase tracking-wider">Segment B</span>
-                      </div>
+                      {/* Name/Indicator Row (Header) */}
+                      <div className={`h-6 w-full border-b border-black/5 flex items-center justify-center ${stheme.action} opacity-10`} />
                       
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[9px] text-[#0369a1] uppercase font-bold block mb-1">Kr/m</label>
+                      <div className="flex-1 flex flex-col justify-center">
+                        {/* Cost Row (Top) */}
+                        <div className="h-8 flex flex-col justify-center items-center px-1 border-b border-black/5 bg-white/20 space-y-0">
+                          <div className="text-[6px] font-black text-slate-300 uppercase leading-tight">KR/M</div>
+                          <div className="text-[10px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.cost)}</div>
+                        </div>
+
+                        {/* Weight Row (Middle) - Moved up and restructured */}
+                        <div className="h-8 flex flex-col justify-center items-center px-1 bg-white/30 border-b border-black/5 space-y-0">
+                          <div className="text-[6px] font-black text-slate-300 uppercase leading-tight">VIKT</div>
+                          <div className="text-[9px] font-mono font-black text-slate-400 leading-none">{sdata.weight.toFixed(1)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <motion.div 
+                    key={`${sid}-${scenarioNum}`}
+                    style={{ flex: currentFlex }}
+                    className={`p-3 rounded-xl border-2 transition-all min-w-0 shadow-md ${stheme.card} ${
+                      activeSource === sid ? 'ring-2 ring-offset-2 ring-slate-200' : ''
+                    } ${!sdata.enabled ? 'opacity-50 saturate-0' : ''}`}
+                  >
+                    <div className="flex items-center justify-between h-8 mb-2 pb-1.5 border-b border-black/5">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <button 
+                          onClick={() => updateSource(sid, { enabled: !sdata.enabled })}
+                          className={`w-6 h-3 rounded-full relative transition-colors shrink-0 ${sdata.enabled ? stheme.action : 'bg-slate-300'}`}
+                        >
+                          <div className={`absolute top-0.5 w-2 h-2 bg-white rounded-full transition-all ${sdata.enabled ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                        </button>
+                        {sdata.isCustom ? (
                           <input 
-                            type="number" 
-                            value={data.splitCost}
-                            step="500"
-                            onChange={(e) => updateSource(name, { splitCost: parseInt(e.target.value) || 0 })}
-                            className="w-full text-[11px] p-1.5 border-2 border-[#0369a1]/30 rounded bg-white font-medium focus:outline-none focus:ring-1 focus:ring-[#0369a1] focus:border-[#0369a1]"
+                            type="text" 
+                            value={sdata.name}
+                            onChange={(e) => updateSource(id, { name: e.target.value })}
+                            className={`font-black text-[11px] bg-transparent border-none focus:outline-none focus:ring-1 rounded px-1 w-full ${(stheme as any).ring || 'focus:ring-slate-300'} ${stheme.title}`}
                           />
-                        </div>
-                        <div>
-                          <label className="text-[9px] text-[#0369a1] uppercase font-bold block mb-1">Vikt</label>
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="range" 
-                              min="0.1" 
-                              max="1" 
-                              step="0.1"
-                              value={data.splitWeight}
-                              onChange={(e) => updateSource(name, { splitWeight: parseFloat(e.target.value) })}
-                              className="w-full h-1 my-2 rounded-lg appearance-none cursor-pointer bg-[#0369a1]/20 accent-[#0369a1] 
-                                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-[#991b1b] [&::-webkit-slider-thumb]:shadow-[0_0_5px_rgba(153,27,27,0.3)]
-                                [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-[#991b1b] [&::-moz-range-thumb]:shadow-[0_0_5px_rgba(153,27,27,0.3)]"
-                            />
-                            <span className="text-[10px] font-mono font-bold text-[#0369a1]">{data.splitWeight?.toFixed(1)}</span>
-                          </div>
-                        </div>
+                        ) : (
+                          <h3 className={`font-black text-[11px] truncate ${stheme.title}`}>{sdata.name}</h3>
+                        )}
                       </div>
-                      
-                      {data.nodes.length > 0 && (
-                        <div>
-                          <label className="text-[9px] text-slate-400 uppercase font-bold block mb-1">Välj Split Nod (0 - {data.nodes.length - 1})</label>
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="range" 
-                              min="0" 
-                              max={data.nodes.length - 1} 
-                              step="1"
-                              value={data.splitNodeIndex}
-                              onChange={(e) => updateSource(name, { splitNodeIndex: parseInt(e.target.value) })}
-                              className="w-full h-1 my-2 rounded-lg appearance-none cursor-pointer bg-slate-200"
-                            />
-                            <span className="text-[10px] font-mono font-bold text-slate-500">{data.splitNodeIndex}</span>
-                          </div>
-                        </div>
+                      {sdata.name === 'Tekniskt vatten' && (
+                        <button 
+                          onClick={() => updateSource(sid, { isSplit: !sdata.isSplit, splitNodeIndex: sdata.splitNodeIndex ?? Math.floor(sdata.nodes.length / 2), splitCost: sdata.splitCost ?? sdata.cost, splitWeight: sdata.splitWeight ?? sdata.weight })}
+                          className={`w-6 h-6 flex items-center justify-center rounded transition-all shrink-0 ${sdata.isSplit ? `bg-blue-900 shadow-sm text-white` : 'bg-white border border-slate-200 text-slate-400 hover:text-slate-600'}`}
+                          title="Split"
+                        >
+                          <Scissors className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
+                      {sdata.isCustom && (
+                        <button 
+                          onClick={() => removeSource(sid)}
+                          className={`p-1 rounded-md border transition-all ${stheme.btnBorder} ${stheme.btnText} ${stheme.btnHover} hover:text-red-500`}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Segment A (or Main) Controls */}
+                    <div className={`space-y-1.5 mb-2 border-b border-black/5 -mx-3 px-3 pb-2 ${sdata.isSplit ? 'bg-cyan-50/20' : ''}`}>
+                       {sdata.isSplit && (
+                         <div className="flex items-center justify-between pointer-events-none">
+                            <span className="text-[7px] font-black text-cyan-600 uppercase tracking-widest">Segment A</span>
+                         </div>
+                       )}
+                       <div className="flex items-center justify-between relative">
+                         <div className="flex items-center gap-1">
+                           <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
+                           <div>
+                             {COST_TEMPLATES[sdata.name] && (
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setOpenTemplateMenu(openTemplateMenu === sid ? null : sid);
+                                 }}
+                                 className="w-4 h-4 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors bg-slate-100 rounded-md border border-slate-200 shadow-sm"
+                               >
+                                 <ChevronDown className="w-3 h-3 stroke-[3]" />
+                               </button>
+                             )}
+                             {/* Cost Template Menu */}
+                             <AnimatePresence>
+                               {openTemplateMenu === sid && (
+                                 <motion.div 
+                                   initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                                   exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                                   className={`absolute left-0 top-full mt-1 bg-white border ${stheme.btnBorder} rounded-xl shadow-xl z-[100] p-2 space-y-1 w-44`}
+                                 >
+                                   {COST_TEMPLATES[sdata.name]?.map((tmpl) => (
+                                     <button
+                                       key={tmpl.label}
+                                       onClick={() => {
+                                         updateSource(sid, { cost: tmpl.value });
+                                         setOpenTemplateMenu(null);
+                                       }}
+                                       className={`w-full text-left p-2 ${stheme.btnHover} rounded-lg transition-colors group`}
+                                     >
+                                       <div className="flex justify-between items-center">
+                                         <span className="text-[10px] font-black text-slate-800">{tmpl.label}</span>
+                                         <span className={`text-[9px] font-mono font-bold ${stheme.btnText}`}>{tmpl.costLabel}</span>
+                                       </div>
+                                       <div className="text-[8px] text-slate-400 font-medium">{tmpl.subLabel}</div>
+                                     </button>
+                                   ))}
+                                 </motion.div>
+                               )}
+                             </AnimatePresence>
+                           </div>
+                         </div>
+                         <div className="flex items-center gap-1.5">
+                            <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
+                            <span className="text-[11px] font-mono font-black text-slate-700 leading-none">{sdata.weight.toFixed(1)}</span>
+                         </div>
+                       </div>
+
+                       <div className="flex items-center gap-2">
+                         <input 
+                           type="number" 
+                           value={sdata.cost}
+                           onChange={(e) => updateSource(sid, { cost: parseInt(e.target.value) || 0 })}
+                           className="w-20 text-[12px] p-0.5 border border-slate-200 rounded font-bold focus:ring-1 focus:ring-slate-300 outline-none h-8 px-2"
+                         />
+                         <div className={`${activeCount === 1 ? 'flex-1' : 'w-24'} flex items-center h-5 ${activeCount > 1 ? 'scale-90 origin-right' : ''}`}>
+                           <input 
+                             type="range" min="0.1" max="1" step="0.1" 
+                             value={sdata.weight}
+                             onChange={(e) => updateSource(sid, { weight: parseFloat(e.target.value) })}
+                             className={`w-full h-0.5 rounded-lg appearance-none cursor-pointer transition-all ${stheme.track}`}
+                           />
+                         </div>
+                       </div>
+                    </div>
+
+                    {/* Segment B Controls */}
+                    {sdata.isSplit && (
+                      <div className="mt-2 pt-2 mb-2 border-t border-black/5 -mx-3 px-3 pb-2 bg-blue-900/10 transition-all space-y-1.5">
+                         <div className="flex items-center justify-between">
+                            <span className="text-[7px] font-black text-blue-900 uppercase tracking-widest">Segment B</span>
+                         </div>
+                         
+                         {/* Segment B Cost/Weight */}
+                         <div className="flex items-center justify-between relative">
+                            <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
+                            <div className="flex items-center gap-1.5">
+                               <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
+                               <span className="text-[11px] font-mono font-black text-blue-950 leading-none">{sdata.splitWeight?.toFixed(1) ?? sdata.weight.toFixed(1)}</span>
+                            </div>
+                         </div>
+                         
+                         <div className="flex items-center gap-2">
+                            <input 
+                              type="number" 
+                              value={sdata.splitCost ?? sdata.cost}
+                              onChange={(e) => updateSource(sid, { splitCost: parseInt(e.target.value) || 0 })}
+                              className="w-20 text-[12px] p-0.5 border border-blue-200 rounded font-bold focus:ring-1 focus:ring-blue-400 outline-none h-8 px-2 bg-white"
+                            />
+                            <div className={`${activeCount === 1 ? 'flex-1' : 'w-24'} flex items-center h-5 ${activeCount > 1 ? 'scale-90 origin-right' : ''}`}>
+                              <input 
+                                type="range" min="0.1" max="1" step="0.1" 
+                                value={sdata.splitWeight ?? sdata.weight}
+                                onChange={(e) => updateSource(sid, { splitWeight: parseFloat(e.target.value) })}
+                                className="w-full h-0.5 rounded-lg appearance-none cursor-pointer accent-blue-900 bg-blue-200"
+                              />
+                            </div>
+                         </div>
+
+                         {/* Node Index Slider */}
+                         <div className="pt-1.5 border-t border-blue-200/30">
+                            <div className="flex items-center justify-between mb-1">
+                               <span className="text-[7px] font-bold text-slate-500 uppercase">Välj split-nod</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <input 
+                                 type="range" 
+                                 min="0" 
+                                 max={Math.max(0, sdata.nodes.length - 1)} 
+                                 step="1"
+                                 value={sdata.splitNodeIndex ?? 0}
+                                 onChange={(e) => updateSource(sid, { splitNodeIndex: parseInt(e.target.value) })}
+                                 className="flex-1 h-1 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-700"
+                               />
+                               <span className="text-[9px] font-mono font-black text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded min-w-[20px] text-center">
+                                 {sdata.splitNodeIndex + 1}
+                               </span>
+                            </div>
+                         </div>
+                      </div>
+                    )}
+
+                    {/* Node Tool Row */}
+                    <div className="flex gap-1 h-8 items-center">
+                      <button
+                        onClick={() => {
+                          if (activeSource === sid && activeAction === 'node') {
+                            setActiveSource(null);
+                            setActiveAction(null);
+                          } else {
+                            setActiveSource(sid);
+                            setActiveAction('node');
+                          }
+                        }}
+                        className={`flex-1 h-6 text-[8px] font-black uppercase rounded transition-all ${
+                          activeSource === sid && activeAction === 'node' 
+                          ? `${stheme.action} text-white` 
+                          : 'bg-white border border-slate-200 text-slate-500'
+                        }`}
+                      >
+                        + NODER
+                      </button>
+                      <button onClick={() => undoNode(sid)} disabled={sdata.nodes.length === 0} className="w-6 h-6 bg-white border border-slate-200 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30 flex items-center justify-center">
+                        <Undo2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              };
+
+              return (
+                <div key={id} className="flex gap-2 items-center">
+                  <div className="flex flex-1 gap-1.5 items-stretch min-w-0">
+                    {allScenarioNums.map(num => renderSourceCard(id, scenarios[num].sources[id], num, num === activeScenario))}
+                  </div>
+                </div>
+              );
+            })}
+            
+            <div className="flex justify-start py-4">
+              {Object.values(sources).filter(s => (s as Source).isCustom).length < 3 ? (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  onClick={addCustomSource}
+                  className={`w-14 h-7 flex items-center justify-center rounded-lg border-2 border-dashed transition-all group relative bg-white/50 ${nextTheme.btnBorder} ${nextTheme.btnText} hover:bg-white`}
+                >
+                  <Plus className="w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity" />
+                  <span className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase ${nextTheme.btnText} opacity-100 transition-opacity whitespace-nowrap`}>Lägg till källa</span>
+                </motion.button>
+              ) : (
+                <div className="w-14 h-7 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed">
+                  <Plus className="w-5 h-5 text-slate-300" />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Map Layers Control */}
@@ -813,7 +1159,7 @@ export default function App() {
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-slate-400" />
+                  <LandPlot className="w-3.5 h-3.5 text-slate-400" />
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bakgrund</span>
                 </div>
                 
@@ -823,11 +1169,11 @@ export default function App() {
                   title="Lager"
                   className={`w-6 h-6 flex items-center justify-center rounded-md border transition-all ${
                     showLayerMenu 
-                      ? 'bg-indigo-600 text-white border-indigo-600 rotate-45' 
+                      ? 'bg-indigo-600 text-white border-indigo-600' 
                       : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 shadow-sm'
                   }`}
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  {showLayerMenu ? <X className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
@@ -961,6 +1307,7 @@ export default function App() {
             onAction={handleMapAction} 
             onPlaceTest={(latlng) => {
               setTestLocation(latlng);
+              setShowTestLocation(true);
               setPlacingTestLocation(false);
             }}
             onRelocate={handleRelocate}
@@ -994,7 +1341,71 @@ export default function App() {
           ))}
 
           {/* Source Paths and Markers */}
-          {(Object.entries(sources) as [string, Source][]).map(([name, data]) => {
+          {(Object.entries(scenarios) as [string, ScenarioData][]).map(([numStr, scenarioData]) => {
+            const num = parseInt(numStr);
+            if (num === activeScenario) return null;
+            
+            const scenarioSources = scenarioData.sources;
+            const scenarioAnalysis = runAnalysis(scenarioSources);
+
+            // Differentiation for inactive scenarios
+            // 1: White, 2: Black, 3: Striped (Black/White)
+            const scenarioColor = num === 1 ? '#ffffff' : '#000000';
+            const isStriped = num === 3;
+
+            return (
+              <React.Fragment key={`scenario-map-${num}`}>
+                {(Object.entries(scenarioSources) as [string, Source][]).map(([id, data]) => {
+                  if (!data.enabled) return null;
+                  const target = (scenarioData.testLocation && scenarioData.showTestLocation) 
+                    ? scenarioData.testLocation 
+                    : scenarioAnalysis.bestLoc;
+                  const path = [data.loc, ...data.nodes, target];
+
+                  return (
+                    <React.Fragment key={`scenario-${num}-${id}`}>
+                      <Polyline 
+                        positions={path} 
+                        pathOptions={{ 
+                          color: scenarioColor,
+                          weight: 3, 
+                          opacity: 0.5,
+                        }} 
+                      />
+                      {isStriped && (
+                        <Polyline 
+                          positions={path} 
+                          pathOptions={{ 
+                            color: '#ffffff',
+                            weight: 3, 
+                            opacity: 0.7,
+                            dashArray: '8, 8'
+                          }} 
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                <Marker 
+                  position={scenarioAnalysis.bestLoc}
+                  icon={L.divIcon({
+                    className: 'comparison-sweetspot',
+                    html: `
+                      <div class="flex items-center justify-center">
+                        <div class="w-5 h-5 rounded-full border border-dashed border-slate-300 bg-white/20 flex items-center justify-center">
+                          <div class="w-1 h-1 rounded-full bg-slate-300"></div>
+                        </div>
+                      </div>
+                    `,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                  })}
+                />
+              </React.Fragment>
+            );
+          })}
+
+          {(Object.entries(sources) as [string, Source][]).map(([id, data]) => {
             const target = (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
             
             // Calculate segments/path
@@ -1054,7 +1465,7 @@ export default function App() {
             };
 
             return (
-              <React.Fragment key={name}>
+              <React.Fragment key={id}>
                 {renderSegments()}
                 <Marker 
                   position={data.loc}
@@ -1063,7 +1474,7 @@ export default function App() {
                     dragend: (e) => {
                       const marker = e.target;
                       const position = marker.getLatLng();
-                      updateSource(name, { loc: [position.lat, position.lng] });
+                      updateSource(id, { loc: [position.lat, position.lng] });
                     },
                   }}
                   icon={L.divIcon({
@@ -1075,27 +1486,32 @@ export default function App() {
                 >
                   {data.enabled && (
                     <Tooltip permanent direction="top" offset={[0, -10]} className={`!bg-black/70 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-none`}>
-                      <span>{name}</span>
+                      <span>{data.name}</span>
                     </Tooltip>
                   )}
                 </Marker>
                 {data.nodes.map((node, ni) => (
                   <Marker 
-                    key={`${name}-node-${ni}`}
+                    key={`${id}-node-${ni}`}
                     position={node} 
                     draggable={true}
                     eventHandlers={{
+                      click: () => {
+                        if (data.isSplit) {
+                          updateSource(id, { splitNodeIndex: ni });
+                        }
+                      },
                       dragend: (e) => {
                         const marker = e.target;
                         const position = marker.getLatLng();
                         const newNodes = [...data.nodes];
                         newNodes[ni] = [position.lat, position.lng];
-                        updateSource(name, { nodes: newNodes });
+                        updateSource(id, { nodes: newNodes });
                       },
                     }}
                     icon={L.divIcon({
                       className: 'node-marker',
-                      html: `<div style="background-color: #fff; opacity: ${data.enabled ? (data.isSplit && ni === data.splitNodeIndex ? 1 : 0.8) : 0.1}; width: ${data.isSplit && ni === data.splitNodeIndex ? '14px' : '10px'}; height: ${data.isSplit && ni === data.splitNodeIndex ? '14px' : '10px'}; border-radius: 50%; border: ${data.isSplit && ni === data.splitNodeIndex ? '3px solid #991b1b' : '1px solid #000'}; box-shadow: ${data.isSplit && ni === data.splitNodeIndex ? '0 0 8px rgba(153, 27, 27, 0.5)' : 'none'};"></div>`,
+                      html: `<div style="background-color: #fff; opacity: ${data.enabled ? (data.isSplit && ni === data.splitNodeIndex ? 1 : 0.8) : 0.1}; width: ${data.isSplit && ni === data.splitNodeIndex ? '14px' : '10px'}; height: ${data.isSplit && ni === data.splitNodeIndex ? '14px' : '10px'}; border-radius: 50%; border: ${data.isSplit && ni === data.splitNodeIndex ? '3px solid #991b1b' : '1px solid #000'}; box-shadow: ${data.isSplit && ni === data.splitNodeIndex ? '0 0 8px rgba(153, 27, 27, 0.5)' : 'none'}; cursor: ${data.isSplit ? 'pointer' : 'move'};"></div>`,
                       iconSize: data.isSplit && ni === data.splitNodeIndex ? [14, 14] : [10, 10],
                       iconAnchor: data.isSplit && ni === data.splitNodeIndex ? [7, 7] : [5, 5]
                     })}
@@ -1167,60 +1583,108 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               className="bg-white/95 backdrop-blur-xl p-5 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-white pointer-events-auto"
             >
-              <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
+              <div className="flex flex-col items-center gap-3 mb-6 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#4778A5]" fill="#4778A520" />
                   <span className="text-slate-800 font-black tracking-tight text-[13px] uppercase">Vald plats</span>
                 </div>
-                <div className="font-mono font-black text-[#4778A5] text-base bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
-                  {Math.round(testLocationResult.total).toLocaleString('sv-SE')} kr
+                <div className="flex items-center justify-center gap-1.5 w-full">
+                  {Object.keys(scenarios).sort().map(numStr => {
+                    const num = parseInt(numStr);
+                    const isActive = num === activeScenario;
+                    const result = allScenariosAtTestLocation?.[num];
+                    if (!result) return null;
+                    
+                    return (
+                      <div 
+                        key={num}
+                        className={`font-mono font-black transition-all shrink-0 ${
+                          isActive 
+                          ? 'text-[#4778A5] text-[13px] bg-[#4778A5]/10 px-3 py-1.5 rounded-lg border border-[#4778A5]/20 shadow-sm' 
+                          : 'text-[#4778A5]/40 text-[9px] px-2 py-1 border border-[#4778A5]/5 rounded-md'
+                        }`}
+                      >
+                        {Math.round(result.total).toLocaleString('sv-SE')} kr
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                {Object.entries(testLocationResult.breakdown).map(([name, val]) => {
-                  const detailed = testLocationResult.detailedBreakdown?.[name];
-                  const hasSplit = detailed && detailed.segments.length > 1;
+
+              <div className="space-y-4">
+                {Object.entries(testLocationResult.breakdown).map(([id, val]) => {
+                  const source = sources[id];
+                  if (!source) return null;
+
+                  const allScenarioNums = Object.keys(scenarios).map(n => parseInt(n)).sort();
+                  const activeCount = allScenarioNums.length;
                   
-                  return (
-                    <div key={name} className="space-y-1">
-                      <div className="flex justify-between items-center bg-slate-50 p-2.5 px-3 rounded-xl border border-slate-100">
+                  const getScenarioData = (num: number) => {
+                    const scen = scenarios[num];
+                    if (!scen || !scen.sources[id]) return null;
+                    const scenLoc = scen.testLocation || (scen.showTestLocation ? scen.testLocation : null) || runAnalysis(scen.sources).bestLoc;
+                    
+                    // Use the robust analysis calculation which handles splits
+                    const result = getCostAt(scen.sources, scenLoc as [number, number]);
+                    const sCost = result.breakdown[id] || 0;
+                    
+                    // Calculate total path distance from segments
+                    const sDist = result.detailedBreakdown?.[id]?.segments.reduce((acc, s) => acc + s.dist, 0) || 0;
+                    
+                    return { dist: sDist, cost: sCost };
+                  };
+
+                  if (activeCount === 1) {
+                    const data = getScenarioData(activeScenario)!;
+                    return (
+                      <div key={id} className="flex items-center justify-between px-1 group">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sources[name].color }} />
-                          <span className="text-[11px] font-bold text-slate-600">{name}</span>
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: source.color }} />
+                          <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{source.name}</span>
                         </div>
-                        <div className="flex items-center gap-4">
-                          {!hasSplit && (
-                            <span className="text-[11px] font-mono font-medium text-slate-400">
-                              {Math.round(sourceDistances[name]).toLocaleString('sv-SE')} m
-                            </span>
-                          )}
-                          <span className="text-[12px] font-mono font-black text-slate-900">
-                            {Math.round(val as number).toLocaleString('sv-SE')} kr
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(data.dist).toLocaleString('sv-SE')} m</span>
+                          <span className="text-[10px] font-mono font-black text-slate-800">{Math.round(data.cost).toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={id} className="space-y-1.5">
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: source.color }} />
+                          <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{source.name}</span>
                         </div>
                       </div>
                       
-                      {hasSplit && (
-                        <div className="ml-4 space-y-1">
-                          {detailed.segments.map((seg, si) => (
-                            <div key={si} className="flex justify-between items-center bg-slate-50/50 p-1.5 px-3 rounded-lg border border-slate-50">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-1.5 h-1.5 rounded-full ${si === 1 ? 'bg-cyan-800' : 'bg-cyan-400'}`} />
-                                <span className="text-[10px] font-medium text-slate-500">
-                                  {si === 1 ? 'Segment B' : 'Segment A'}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-mono text-slate-400">{Math.round(seg.dist).toLocaleString('sv-SE')} m</span>
-                                <span className="text-[10px] font-mono font-bold text-slate-700">
-                                  {Math.round(seg.dist * seg.cost * seg.weight).toLocaleString('sv-SE')} kr
-                                </span>
-                              </div>
+                      <div className="flex gap-1">
+                        {allScenarioNums.map(num => {
+                          const data = getScenarioData(num);
+                          const isActive = num === activeScenario;
+                          if (!data) return null;
+                          return (
+                            <div 
+                              key={num} 
+                              className={`p-1.5 rounded-lg border transition-all ${
+                                isActive 
+                                ? 'flex-[1.5] bg-slate-50 border-slate-200 shadow-sm ring-1 ring-black/5' 
+                                : 'flex-1 bg-slate-50/20 border-slate-100 opacity-60'
+                              }`}
+                            >
+                               <div className="flex flex-col gap-0.5 items-center">
+                                 <div className={`${isActive ? 'text-[10px] font-black' : 'text-[8px] font-bold'} font-mono text-slate-900 leading-none truncate w-full text-center`}>
+                                   {Math.round(data.cost).toLocaleString('sv-SE')} kr
+                                 </div>
+                                 <div className="text-[7px] font-mono font-bold text-slate-400 w-full text-center">
+                                   {Math.round(data.dist).toLocaleString('sv-SE')} m
+                                 </div>
+                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
@@ -1235,7 +1699,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               className="bg-slate-900/95 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.4)] border border-white/10 pointer-events-auto"
             >
-              <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
+              <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
                   <div className="relative flex items-center justify-center">
                     <div className="absolute w-5 h-5 rounded-full border border-white/40 animate-ping" />
@@ -1243,9 +1707,11 @@ export default function App() {
                   </div>
                   <span className="text-white font-black tracking-tight text-[13px] uppercase">Sweet spot</span>
                 </div>
-                <span className="font-mono font-black text-white text-base bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-                  {Math.round(analysis.minVal).toLocaleString('sv-SE')} kr
-                </span>
+                <div className="flex flex-col items-end">
+                  <div className="font-mono font-black text-white text-base bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                    {Math.round(analysis.minVal).toLocaleString('sv-SE')} kr
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1.5">

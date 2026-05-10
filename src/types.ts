@@ -11,6 +11,7 @@ export interface Source {
   weight: number;
   nodes: [number, number][];
   enabled: boolean;
+  isCustom?: boolean;
   isSplit?: boolean;
   splitNodeIndex?: number;
   splitCost?: number;

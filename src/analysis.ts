@@ -16,12 +16,12 @@ export function getDistance(p1: [number, number], p2: [number, number]): number 
 }
 
 export function getCostAt(sources: Record<string, Source>, target: [number, number]): { total: number; breakdown: CostBreakdown; detailedBreakdown?: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> } {
-  const sourceList = Object.values(sources).filter(s => s.enabled);
   let totalCost = 0;
   const breakdown: CostBreakdown = {};
   const detailedBreakdown: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> = {};
 
-  for (const source of sourceList) {
+  for (const [id, source] of Object.entries(sources)) {
+    if (!source.enabled) continue;
     if (source.isSplit && source.splitNodeIndex !== undefined && source.nodes.length > source.splitNodeIndex) {
       // Segment B: Source -> ... -> SplitPoint (Dark Blue)
       let distB = 0;
@@ -44,8 +44,8 @@ export function getCostAt(sources: Record<string, Source>, target: [number, numb
 
       const totalSourceCost = costA + costB;
       totalCost += totalSourceCost;
-      breakdown[source.name] = totalSourceCost;
-      detailedBreakdown[source.name] = {
+      breakdown[id] = totalSourceCost;
+      detailedBreakdown[id] = {
         total: totalSourceCost,
         segments: [
           { dist: distA, cost: source.cost, weight: source.weight },
@@ -62,8 +62,8 @@ export function getCostAt(sources: Record<string, Source>, target: [number, numb
       const dist = fixedDist + getDistance(currP, target);
       const sourceCost = dist * source.cost * source.weight;
       totalCost += sourceCost;
-      breakdown[source.name] = sourceCost;
-      detailedBreakdown[source.name] = {
+      breakdown[id] = sourceCost;
+      detailedBreakdown[id] = {
         total: sourceCost,
         segments: [{ dist, cost: source.cost, weight: source.weight }]
       };
