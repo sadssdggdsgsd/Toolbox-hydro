@@ -920,17 +920,53 @@ export default function App() {
                       <div className={`h-6 w-full border-b border-black/5 flex items-center justify-center ${stheme.action} opacity-10`} />
                       
                       <div className="flex-1 flex flex-col justify-center">
-                        {/* Cost Row (Top) */}
-                        <div className="h-8 flex flex-col justify-center items-center px-1 border-b border-black/5 bg-white/20 space-y-0">
-                          <div className="text-[9px] font-black text-slate-300 uppercase leading-tight">KR/M</div>
-                          <div className="text-[11px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.cost)}</div>
-                        </div>
+                        {sdata.isSplit ? (
+                          <div className="flex flex-col">
+                            {/* Segment A */}
+                            <div className="flex flex-col">
+                              {/* A Marker - Aligned with active Segment A position */}
+                              <div className="h-5 flex items-center justify-center border-b border-black/5">
+                                <span className="text-[9px] font-black text-cyan-600 uppercase">A</span>
+                              </div>
+                              <div className="h-8 flex flex-col justify-center items-center border-b border-black/5 bg-white/10">
+                                <div className="text-[9px] font-black text-slate-300 uppercase leading-none">KR/M</div>
+                                <div className="text-[11px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.cost)}</div>
+                              </div>
+                              <div className="h-8 flex flex-col justify-center items-center border-b border-black/5 bg-white/5">
+                                <div className="text-[9px] font-black text-slate-300 uppercase leading-none">VIKT</div>
+                                <div className="text-[11px] font-mono font-black text-slate-400 leading-none">{sdata.weight.toFixed(1)}</div>
+                              </div>
+                            </div>
+                            {/* Segment B - Solid light gray background */}
+                            <div className="flex flex-col bg-[#F1F1F1]">
+                              <div className="h-5 flex items-center justify-center border-b border-black/5">
+                                <span className="text-[9px] font-black text-blue-900 uppercase">B</span>
+                              </div>
+                              <div className="h-8 flex flex-col justify-center items-center border-b border-black/5">
+                                <div className="text-[9px] font-black text-slate-300 uppercase leading-none">KR/M</div>
+                                <div className="text-[11px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.splitCost ?? sdata.cost)}</div>
+                              </div>
+                              <div className="h-8 flex flex-col justify-center items-center">
+                                <div className="text-[9px] font-black text-slate-300 uppercase leading-none">VIKT</div>
+                                <div className="text-[11px] font-mono font-black text-slate-400 leading-none">{(sdata.splitWeight ?? sdata.weight).toFixed(1)}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Cost Row (Top) */}
+                            <div className="h-8 flex flex-col justify-center items-center px-1 border-b border-black/5 bg-white/20 space-y-0">
+                              <div className="text-[9px] font-black text-slate-300 uppercase leading-tight">KR/M</div>
+                              <div className="text-[11px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.cost)}</div>
+                            </div>
 
-                        {/* Weight Row (Middle) - Moved up and restructured */}
-                        <div className="h-8 flex flex-col justify-center items-center px-1 bg-white/30 border-b border-black/5 space-y-0">
-                          <div className="text-[9px] font-black text-slate-300 uppercase leading-tight">VIKT</div>
-                          <div className="text-[11px] font-mono font-black text-slate-400 leading-none">{sdata.weight.toFixed(1)}</div>
-                        </div>
+                            {/* Weight Row (Middle) - Moved up and restructured */}
+                            <div className="h-8 flex flex-col justify-center items-center px-1 bg-white/30 border-b border-black/5 space-y-0">
+                              <div className="text-[9px] font-black text-slate-300 uppercase leading-tight">VIKT</div>
+                              <div className="text-[11px] font-mono font-black text-slate-400 leading-none">{sdata.weight.toFixed(1)}</div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -983,12 +1019,12 @@ export default function App() {
                     </div>
 
                     {/* Segment A (or Main) Controls */}
-                    <div className={`space-y-1.5 mb-2 border-b border-black/5 -mx-3 px-3 pb-2 ${sdata.isSplit ? 'bg-cyan-50/20' : ''}`}>
-                       {sdata.isSplit && (
-                         <div className="flex items-center justify-between pointer-events-none">
-                            <span className="text-[7px] font-black text-cyan-600 uppercase tracking-widest">Segment A</span>
-                         </div>
-                       )}
+                     <div className={`space-y-1.5 mb-2 border-b border-black/5 -mx-3 px-3 pb-2 ${sdata.isSplit ? 'bg-cyan-50/20' : ''}`}>
+                        {sdata.isSplit && (
+                          <div className="flex items-center justify-between pointer-events-none">
+                             <span className="text-[9px] font-black text-cyan-600 uppercase tracking-widest">Segment A</span>
+                          </div>
+                        )}
                        <div className="flex items-center justify-between relative">
                          <div className="flex items-center gap-1">
                            <label className="text-[9px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
@@ -1065,7 +1101,7 @@ export default function App() {
                     {sdata.isSplit && (
                       <div className="mt-2 pt-2 mb-2 border-t border-black/5 -mx-3 px-3 pb-2 bg-blue-900/10 transition-all space-y-1.5">
                          <div className="flex items-center justify-between">
-                            <span className="text-[7px] font-black text-blue-900 uppercase tracking-widest">Segment B</span>
+                            <span className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Segment B</span>
                          </div>
                          
                          {/* Segment B Cost/Weight */}
