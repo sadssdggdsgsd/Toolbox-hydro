@@ -463,6 +463,20 @@ export default function App() {
     }));
   };
 
+  const updateAllScenariosSources = (updater: (prev: Record<string, Source>) => Record<string, Source>) => {
+    setScenarios(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(numStr => {
+        const num = parseInt(numStr);
+        next[num] = {
+          ...next[num],
+          sources: updater(next[num].sources)
+        };
+      });
+      return next;
+    });
+  };
+
   const setTestLocation = (loc: [number, number] | null) => {
     setScenarios(prev => ({
       ...prev,
@@ -734,21 +748,23 @@ export default function App() {
       enabled: true,
       isCustom: true
     };
-    setSources(prev => ({ ...prev, [id]: newSource }));
+    
+    updateAllScenariosSources(prev => ({ ...prev, [id]: newSource }));
     setActiveSource(id);
     setActiveAction('move');
   };
 
   const removeSource = (id: string) => {
-    setSources(prev => {
+    updateAllScenariosSources(prev => {
       const next = { ...prev };
       delete next[id];
-      if (activeSource === id) {
-        setActiveSource(null);
-        setActiveAction(null);
-      }
       return next;
     });
+    
+    if (activeSource === id) {
+      setActiveSource(null);
+      setActiveAction(null);
+    }
   };
 
   const handleMapAction = (latlng: [number, number]) => {
@@ -762,7 +778,7 @@ export default function App() {
     const deltaLat = latlng[0] - currentSweetSpot[0];
     const deltaLon = latlng[1] - currentSweetSpot[1];
 
-    setSources(prev => {
+    updateAllScenariosSources(prev => {
       const updatedSources: Record<string, Source> = {};
       (Object.entries(prev) as [string, Source][]).forEach(([name, source]) => {
         updatedSources[name] = {
@@ -899,7 +915,15 @@ export default function App() {
               const allScenarioNums = Object.keys(scenarios).map(n => parseInt(n)).sort();
               const activeCount = allScenarioNums.length;
 
-              const renderSourceCard = (sid: string, sdata: Source, scenarioNum: number, isActive: boolean) => {
+              const renderSourceCard = (sid: string, sdata: Source | undefined, scenarioNum: number, isActive: boolean) => {
+                if (!sdata) return (
+                  <div 
+                    key={`${sid}-${scenarioNum}`}
+                    style={{ flex: activeCount === 1 ? 1 : (isActive ? (activeCount === 2 ? 2 : 3) : 1) }}
+                    className="rounded-lg border bg-slate-100/50 opacity-20"
+                  />
+                );
+                
                 const stheme = getSourceTheme(sdata.name, sdata);
                 
                 // Dynamic flex weights based on active count requested: 
@@ -926,7 +950,7 @@ export default function App() {
                             <div className="flex flex-col">
                               {/* A Marker - Aligned with active Segment A position */}
                               <div className="h-5 flex items-center justify-center border-b border-black/5">
-                                <span className="text-[9px] font-black text-cyan-600 uppercase">A</span>
+                                <span className="text-[9px] font-black text-slate-500 uppercase">A</span>
                               </div>
                               <div className="h-8 flex flex-col justify-center items-center border-b border-black/5 bg-white/10">
                                 <div className="text-[9px] font-black text-slate-300 uppercase leading-none">KR/M</div>
@@ -940,7 +964,7 @@ export default function App() {
                             {/* Segment B - Solid light gray background */}
                             <div className="flex flex-col bg-[#F1F1F1]">
                               <div className="h-5 flex items-center justify-center border-b border-black/5">
-                                <span className="text-[9px] font-black text-blue-900 uppercase">B</span>
+                                <span className="text-[9px] font-black text-slate-600 uppercase">B</span>
                               </div>
                               <div className="h-8 flex flex-col justify-center items-center border-b border-black/5">
                                 <div className="text-[9px] font-black text-slate-300 uppercase leading-none">KR/M</div>
@@ -1022,7 +1046,7 @@ export default function App() {
                      <div className={`space-y-1.5 mb-2 border-b border-black/5 -mx-3 px-3 pb-2 ${sdata.isSplit ? 'bg-cyan-50/20' : ''}`}>
                         {sdata.isSplit && (
                           <div className="flex items-center justify-between pointer-events-none">
-                             <span className="text-[9px] font-black text-cyan-600 uppercase tracking-widest">Segment A</span>
+                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Segment A</span>
                           </div>
                         )}
                        <div className="flex items-center justify-between relative">
@@ -1101,7 +1125,7 @@ export default function App() {
                     {sdata.isSplit && (
                       <div className="mt-2 pt-2 mb-2 border-t border-black/5 -mx-3 px-3 pb-2 bg-blue-900/10 transition-all space-y-1.5">
                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Segment B</span>
+                            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Segment B</span>
                          </div>
                          
                          {/* Segment B Cost/Weight */}
