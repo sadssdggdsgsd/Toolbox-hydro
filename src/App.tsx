@@ -37,7 +37,9 @@ import {
   Lock,
   Unlock,
   Scissors,
-  Split
+  Split,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
@@ -614,6 +616,7 @@ export default function App() {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [isRelocatingSweetSpot, setIsRelocatingSweetSpot] = useState(false);
+  const [uiScale, setUiScale] = useState(1);
 
   // Remove duplicate analysis declaration
 
@@ -774,8 +777,15 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-slate-100 text-slate-800 overflow-hidden font-sans">
       {/* Sidebar */}
-      <aside className="w-80 h-full border-r border-slate-200 bg-white flex flex-col z-[1001] shadow-lg">
-        <div className="p-6 border-b border-slate-100">
+      <aside 
+        className="h-full border-r border-slate-200 bg-white flex flex-col z-[1001] shadow-lg transition-all duration-300 overflow-hidden"
+        style={{ 
+          width: `${320 * uiScale}px`,
+          minWidth: `${320 * uiScale}px`
+        }}
+      >
+        <div className="flex flex-col h-full w-[320px] shrink-0" style={{ transform: `scale(${uiScale})`, transformOrigin: 'top left' }}>
+          <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 shrink-0">
               Sweetspotfinder
@@ -1309,11 +1319,11 @@ export default function App() {
             </div>
           </div>
         </div>
-
-      </aside>
+      </div>
+    </aside>
 
       {/* Main Map */}
-      <main className="flex-1 relative bg-slate-200 z-[1]">
+      <main className="flex-1 relative bg-slate-200 z-[1] overflow-hidden">
         <MapContainer 
           center={analysis.bestLoc} 
           zoom={13} 
@@ -1627,7 +1637,13 @@ export default function App() {
           )}
         </MapContainer>
 
-        <div className="absolute top-6 right-6 z-[1000] w-80 max-h-[90%] flex flex-col gap-4 pointer-events-none">
+        <div 
+          className="absolute top-6 right-6 z-[1000] w-80 max-h-[90%] flex flex-col gap-4 pointer-events-none transition-all duration-300"
+          style={{ 
+            transform: `scale(${uiScale})`, 
+            transformOrigin: 'top right'
+          }}
+        >
           {/* Selected Location Panel */}
           {testLocationResult && showTestLocation && (
             <motion.div 
@@ -1796,19 +1812,42 @@ export default function App() {
         </div>
 
         {/* Map Controls */}
-        <div className="absolute bottom-8 right-8 z-[1000] flex flex-col gap-2 items-end">
+        <div className="absolute bottom-8 right-8 z-[1000] flex items-center gap-4">
           <div className="flex flex-col gap-2">
             <button 
               onClick={() => mapInstance?.zoomIn()}
-              className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100"
+              className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100"
+              title="Zooma in karta"
             >
               <Plus className="w-5 h-5" />
             </button>
             <button 
               onClick={() => mapInstance?.zoomOut()}
-              className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 font-bold hover:bg-slate-50 border border-slate-100"
+              className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100"
+              title="Zooma ut karta"
             >
               <Minus className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="w-px h-12 bg-slate-300/60 shadow-sm" />
+
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={() => setUiScale(Number(Math.min(1.2, uiScale + 0.1).toFixed(1)))}
+              disabled={uiScale >= 1.2}
+              className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all border ${uiScale >= 1.2 ? 'opacity-20 cursor-not-allowed bg-slate-50 text-slate-400 border-slate-100' : 'bg-white text-slate-600 hover:bg-slate-50 active:scale-90 border-slate-100'}`}
+              title="Större UI"
+            >
+              <ZoomIn className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setUiScale(Number(Math.max(1, uiScale - 0.1).toFixed(1)))}
+              disabled={uiScale <= 1}
+              className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all border ${uiScale <= 1 ? 'opacity-20 cursor-not-allowed bg-slate-50 text-slate-400 border-slate-100' : 'bg-white text-slate-600 hover:bg-slate-50 active:scale-90 border-slate-100'}`}
+              title="Mindre UI"
+            >
+              <ZoomOut className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -1819,7 +1858,8 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="absolute top-8 left-1/2 -translate-x-1/2 z-[2000] pointer-events-none"
+              className="absolute top-8 left-1/2 -translate-x-1/2 z-[2000] pointer-events-none transition-all duration-300"
+              style={{ transform: `scale(${uiScale}) translateX(-50%)`, transformOrigin: 'top center' }}
             >
               <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3">
                 <Move className="w-4 h-4 text-indigo-400 animate-bounce" />
