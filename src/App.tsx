@@ -502,36 +502,43 @@ export default function App() {
   const analysis = useMemo(() => runAnalysis(sources), [sources]);
 
   const addScenario = () => {
-    const nextScenario = Object.keys(scenarios).length + 1;
+    const existingIds = Object.keys(scenarios).map(Number);
+    const nextScenario = Math.max(...existingIds) + 1;
     if (nextScenario > 3) return;
 
-    // Use current best location as reference for new scenario
-    const currentBest = analysis.bestLoc;
-    const baseAngle = 45 * Math.PI / 180;
+    // Use current active scenario as reference, or the highest existing one if adding Alt 3
+    const refScenario = scenarios[activeScenario];
+    const prevSources = refScenario.sources;
+    const prevBest = analysis.bestLoc;
     
-    // 1. Calculate scenario 100m ref point @ 45deg (bearing 45)
-    // Lat = Y = Distance * cos(bearing), Lon = X = Distance * sin(bearing)
-    const refDist = 100;
-    const refLat = currentBest[0] + (refDist * Math.cos(baseAngle)) / 111111;
-    const refLon = currentBest[1] + (refDist * Math.sin(baseAngle)) / (111111 * Math.cos(currentBest[0] * Math.PI / 180));
-    const scenRef: [number, number] = [refLat, refLon];
-
     const newSources: Record<string, Source> = {};
-    const entries = Object.entries(INITIAL_SOURCES);
-    const sourceCount = entries.length;
+    // Offset angle: 20 degrees counter-clockwise for changes
+    const angleOffset = -20;
 
-    entries.forEach(([id, source], idx) => {
-      // 2. Distribute sources 3000m from scenRef
-      // Angles: 45, 105, 165, ...
-      const sourceAngle = (45 + idx * (360 / sourceCount)) * Math.PI / 180;
-      const sDist = 3000;
-      const sLat = scenRef[0] + (sDist * Math.cos(sourceAngle)) / 111111;
-      const sLon = scenRef[1] + (sDist * Math.sin(sourceAngle)) / (111111 * Math.cos(scenRef[0] * Math.PI / 180));
+    (Object.entries(prevSources) as [string, Source][]).forEach(([id, source]) => {
+      // Calculate bearing from sweetspot to source
+      // Use simple equirectangular approximation for bearing calculation near point
+      const lat1 = prevBest[0] * Math.PI / 180;
+      const lon1 = prevBest[1] * Math.PI / 180;
+      const lat2 = source.loc[0] * Math.PI / 180;
+      const lon2 = source.loc[1] * Math.PI / 180;
+      
+      const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+      const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+      const bearing = Math.atan2(y, x) * 180 / Math.PI;
+
+      // Apply offset to displacement bearing
+      const jumpBearing = bearing + angleOffset;
+      
+      // Calculate new location 50m away from old location
+      // Using 111111 as meters per degree lat approximation
+      const dLat = (50 * Math.cos(jumpBearing * Math.PI / 180)) / 111111;
+      const dLon = (50 * Math.sin(jumpBearing * Math.PI / 180)) / (111111 * Math.cos(source.loc[0] * Math.PI / 180));
       
       newSources[id] = {
         ...source,
-        loc: [sLat, sLon],
-        nodes: []
+        loc: [source.loc[0] + dLat, source.loc[1] + dLon],
+        nodes: [] // Reset nodes as they might not make sense in new location
       };
     });
 
