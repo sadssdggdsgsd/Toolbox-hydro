@@ -1641,7 +1641,7 @@ export default function App() {
                   <span className="text-slate-800 font-black tracking-tight text-[13px] uppercase">Vald plats</span>
                 </div>
                 {Object.keys(scenarios).length === 1 ? (
-                  <div className="font-mono font-black text-[#4778A5] text-[13px] bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
+                  <div className="font-mono font-black text-[#4778A5] text-[15px] bg-[#4778A5]/10 px-3 py-1 rounded-lg border border-[#4778A5]/20">
                     {Math.round(allScenariosAtTestLocation?.[activeScenario]?.total || 0).toLocaleString('sv-SE')} kr
                   </div>
                 ) : (
@@ -1766,7 +1766,7 @@ export default function App() {
                   <span className="text-white font-black tracking-tight text-[13px] uppercase">Sweet spot</span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <div className="font-mono font-black text-white text-[13px] bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                  <div className="font-mono font-black text-white text-[15px] bg-white/10 px-3 py-1 rounded-lg ring-1 ring-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                     {Math.round(analysis.minVal).toLocaleString('sv-SE')} kr
                   </div>
                 </div>
