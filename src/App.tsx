@@ -130,7 +130,7 @@ const INITIAL_SOURCES: Record<string, Source> = {
   }
 };
 
-const COST_TEMPLATES: Record<string, { label: string; subLabel: string; costLabel: string; value: number }[]> = {
+const COST_TEMPLATES: Record<string, { label: string; subLabel: string; costLabel: string; value: number; hasDivider?: boolean }[]> = {
   'El': [
     { label: '1 – 10 MW', subLabel: '10 - 24 kV', costLabel: '1 200 kr/m', value: 1200 },
     { label: '10 – 50 MW', subLabel: '24 - 130 kV', costLabel: '8 000 kr/m', value: 8000 },
@@ -153,6 +153,7 @@ const COST_TEMPLATES: Record<string, { label: string; subLabel: string; costLabe
     { label: 'Måttligt behov', subLabel: '200 – 1 000 m³/dygn', costLabel: '7 000 kr/m', value: 7000 },
     { label: 'Högt behov', subLabel: '1 000 – 4 000 m³/dygn', costLabel: '15 000 kr/m', value: 15000 },
     { label: 'Mycket högt behov', subLabel: '5 000 – 25 000 m³/dygn', costLabel: '30 000 kr/m', value: 30000 },
+    { label: 'Sjöledning', subLabel: '200 – 1 000 m³/dygn', costLabel: '5 000 kr/m', value: 5000, hasDivider: true },
   ]
 };
 
@@ -945,7 +946,7 @@ export default function App() {
                           <h3 className={`font-black text-[11px] truncate ${stheme.title}`}>{sdata.name}</h3>
                         )}
                       </div>
-                      {sdata.name === 'Tekniskt vatten' && (
+                      {(sdata.name === 'Tekniskt vatten' || sdata.isCustom) && (
                         <button 
                           onClick={() => updateSource(sid, { isSplit: !sdata.isSplit, splitNodeIndex: sdata.splitNodeIndex ?? Math.floor(sdata.nodes.length / 2), splitCost: sdata.splitCost ?? sdata.cost, splitWeight: sdata.splitWeight ?? sdata.weight })}
                           className={`w-6 h-6 flex items-center justify-center rounded transition-all shrink-0 ${sdata.isSplit ? `bg-blue-900 shadow-sm text-white` : 'bg-white border border-slate-200 text-slate-400 hover:text-slate-600'}`}
@@ -996,20 +997,22 @@ export default function App() {
                                    className={`absolute left-0 top-full mt-1 bg-white border ${stheme.btnBorder} rounded-xl shadow-xl z-[100] p-2 space-y-1 w-44`}
                                  >
                                    {COST_TEMPLATES[sdata.name]?.map((tmpl) => (
-                                     <button
-                                       key={tmpl.label}
-                                       onClick={() => {
-                                         updateSource(sid, { cost: tmpl.value });
-                                         setOpenTemplateMenu(null);
-                                       }}
-                                       className={`w-full text-left p-2 ${stheme.btnHover} rounded-lg transition-colors group`}
-                                     >
-                                       <div className="flex justify-between items-center">
-                                         <span className="text-[10px] font-black text-slate-800">{tmpl.label}</span>
-                                         <span className={`text-[9px] font-mono font-bold ${stheme.btnText}`}>{tmpl.costLabel}</span>
-                                       </div>
-                                       <div className="text-[8px] text-slate-400 font-medium">{tmpl.subLabel}</div>
-                                     </button>
+                                     <React.Fragment key={tmpl.label}>
+                                       {tmpl.hasDivider && <div className="h-px bg-slate-100 my-1 mx-1" />}
+                                       <button
+                                         onClick={() => {
+                                           updateSource(sid, { cost: tmpl.value });
+                                           setOpenTemplateMenu(null);
+                                         }}
+                                         className={`w-full text-left p-2 ${stheme.btnHover} rounded-lg transition-colors group`}
+                                       >
+                                         <div className="flex justify-between items-center">
+                                           <span className="text-[10px] font-black text-slate-800">{tmpl.label}</span>
+                                           <span className={`text-[9px] font-mono font-bold ${stheme.btnText}`}>{tmpl.costLabel}</span>
+                                         </div>
+                                         <div className="text-[8px] text-slate-400 font-medium">{tmpl.subLabel}</div>
+                                       </button>
+                                     </React.Fragment>
                                    ))}
                                  </motion.div>
                                )}
@@ -1025,7 +1028,8 @@ export default function App() {
                        <div className="flex items-center gap-2">
                          <input 
                            type="number" 
-                           value={sdata.cost}
+                           step="500"
+                            value={sdata.cost}
                            onChange={(e) => updateSource(sid, { cost: parseInt(e.target.value) || 0 })}
                            className="w-20 text-[12px] p-0.5 border border-slate-200 rounded font-bold focus:ring-1 focus:ring-slate-300 outline-none h-8 px-2"
                          />
@@ -1049,7 +1053,52 @@ export default function App() {
                          
                          {/* Segment B Cost/Weight */}
                          <div className="flex items-center justify-between relative">
-                            <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
+                            <div className="flex items-center gap-1">
+                               <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
+                               <div>
+                                 {COST_TEMPLATES[sdata.name] && (
+                                   <button 
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setOpenTemplateMenu(openTemplateMenu === sid + '-B' ? null : sid + '-B');
+                                     }}
+                                     className="w-4 h-4 flex items-center justify-center text-blue-900/50 hover:text-blue-900 transition-colors bg-blue-100 rounded-md border border-blue-200 shadow-sm"
+                                   >
+                                     <ChevronDown className="w-3 h-3 stroke-[3]" />
+                                   </button>
+                                 )}
+                                 {/* Cost Template Menu for Segment B */}
+                                 <AnimatePresence>
+                                   {openTemplateMenu === sid + '-B' && (
+                                     <motion.div 
+                                       initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                                       animate={{ opacity: 1, y: 0, scale: 1 }}
+                                       exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                                       className={`absolute left-0 top-full mt-1 bg-white border border-blue-200 rounded-xl shadow-xl z-[100] p-2 space-y-1 w-44`}
+                                     >
+                                       {COST_TEMPLATES[sdata.name]?.map((tmpl) => (
+                                         <React.Fragment key={tmpl.label}>
+                                           {tmpl.hasDivider && <div className="h-px bg-slate-100 my-1 mx-1" />}
+                                           <button
+                                             onClick={() => {
+                                               updateSource(sid, { splitCost: tmpl.value });
+                                               setOpenTemplateMenu(null);
+                                             }}
+                                             className={`w-full text-left p-2 hover:bg-blue-50 rounded-lg transition-colors group`}
+                                           >
+                                             <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-slate-800">{tmpl.label}</span>
+                                                <span className={`text-[9px] font-mono font-bold text-blue-900`}>{tmpl.costLabel}</span>
+                                             </div>
+                                             <div className="text-[8px] text-slate-400 font-medium">{tmpl.subLabel}</div>
+                                           </button>
+                                         </React.Fragment>
+                                       ))}
+                                     </motion.div>
+                                   )}
+                                 </AnimatePresence>
+                               </div>
+                            </div>
                             <div className="flex items-center gap-1.5">
                                <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
                                <span className="text-[11px] font-mono font-black text-blue-950 leading-none">{sdata.splitWeight?.toFixed(1) ?? sdata.weight.toFixed(1)}</span>
@@ -1059,7 +1108,8 @@ export default function App() {
                          <div className="flex items-center gap-2">
                             <input 
                               type="number" 
-                              value={sdata.splitCost ?? sdata.cost}
+                              step="500"
+                               value={sdata.splitCost ?? sdata.cost}
                               onChange={(e) => updateSource(sid, { splitCost: parseInt(e.target.value) || 0 })}
                               className="w-20 text-[12px] p-0.5 border border-blue-200 rounded font-bold focus:ring-1 focus:ring-blue-400 outline-none h-8 px-2 bg-white"
                             />
