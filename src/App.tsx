@@ -915,14 +915,14 @@ export default function App() {
                       <div className="flex-1 flex flex-col justify-center">
                         {/* Cost Row (Top) */}
                         <div className="h-8 flex flex-col justify-center items-center px-1 border-b border-black/5 bg-white/20 space-y-0">
-                          <div className="text-[6px] font-black text-slate-300 uppercase leading-tight">KR/M</div>
-                          <div className="text-[10px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.cost)}</div>
+                          <div className="text-[9px] font-black text-slate-300 uppercase leading-tight">KR/M</div>
+                          <div className="text-[11px] font-black font-mono text-slate-500 leading-none">{Math.round(sdata.cost)}</div>
                         </div>
 
                         {/* Weight Row (Middle) - Moved up and restructured */}
                         <div className="h-8 flex flex-col justify-center items-center px-1 bg-white/30 border-b border-black/5 space-y-0">
-                          <div className="text-[6px] font-black text-slate-300 uppercase leading-tight">VIKT</div>
-                          <div className="text-[9px] font-mono font-black text-slate-400 leading-none">{sdata.weight.toFixed(1)}</div>
+                          <div className="text-[9px] font-black text-slate-300 uppercase leading-tight">VIKT</div>
+                          <div className="text-[11px] font-mono font-black text-slate-400 leading-none">{sdata.weight.toFixed(1)}</div>
                         </div>
                       </div>
                     </div>
@@ -984,7 +984,7 @@ export default function App() {
                        )}
                        <div className="flex items-center justify-between relative">
                          <div className="flex items-center gap-1">
-                           <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
+                           <label className="text-[9px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
                            <div>
                              {COST_TEMPLATES[sdata.name] && (
                                <button 
@@ -1030,7 +1030,7 @@ export default function App() {
                            </div>
                          </div>
                          <div className="flex items-center gap-1.5">
-                            <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
+                            <label className="text-[9px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
                             <span className="text-[11px] font-mono font-black text-slate-700 leading-none">{sdata.weight.toFixed(1)}</span>
                          </div>
                        </div>
@@ -1064,7 +1064,7 @@ export default function App() {
                          {/* Segment B Cost/Weight */}
                          <div className="flex items-center justify-between relative">
                             <div className="flex items-center gap-1">
-                               <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
+                               <label className="text-[9px] text-slate-400 uppercase font-black tracking-tighter">Kr/m</label>
                                <div>
                                  {COST_TEMPLATES[sdata.name] && (
                                    <button 
@@ -1110,7 +1110,7 @@ export default function App() {
                                </div>
                             </div>
                             <div className="flex items-center gap-1.5">
-                               <label className="text-[7px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
+                               <label className="text-[9px] text-slate-400 uppercase font-black tracking-tighter">VIKT</label>
                                <span className="text-[11px] font-mono font-black text-blue-950 leading-none">{sdata.splitWeight?.toFixed(1) ?? sdata.weight.toFixed(1)}</span>
                             </div>
                          </div>
