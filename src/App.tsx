@@ -163,7 +163,7 @@ const CUSTOM_THEMES = [
   {
     id: 'orange',
     color: '#ea580c',
-    card: 'border-orange-100 bg-orange-50/30',
+    card: 'border-orange-300 bg-orange-50/30',
     title: 'text-orange-700',
     action: 'bg-orange-600',
     track: 'bg-orange-200',
@@ -176,7 +176,7 @@ const CUSTOM_THEMES = [
   {
     id: 'pink',
     color: '#db2777',
-    card: 'border-pink-100 bg-pink-50/30',
+    card: 'border-pink-300 bg-pink-50/30',
     title: 'text-pink-700',
     action: 'bg-pink-600',
     track: 'bg-pink-200',
@@ -189,7 +189,7 @@ const CUSTOM_THEMES = [
   {
     id: 'emerald',
     color: '#059669',
-    card: 'border-emerald-100 bg-emerald-50/30',
+    card: 'border-emerald-300 bg-emerald-50/30',
     title: 'text-emerald-700',
     action: 'bg-emerald-600',
     track: 'bg-emerald-200',
