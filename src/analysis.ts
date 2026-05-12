@@ -151,7 +151,7 @@ export function runAnalysis(sources: Record<string, Source>): AnalysisResult {
   const p999 = sortedSuit[Math.floor(sortedSuit.length * 0.999)];
 
   const thresholds = [p995, p9975, p999];
-  const colors = ['#ffff00', '#ffaa00', '#ff5500'];
+  const colors = ['#6366f1', '#f59e0b', '#10b981'];
 
   const generator = d3.contours()
     .size([res, res])

@@ -1858,20 +1858,27 @@ export default function App() {
 
               <div className="space-y-1.5">
                 {[
-                  { label: 'Inre zon', color: '#ff5500', val: analysis.thresholds.inner },
-                  { label: 'Mellanzon', color: '#ffaa00', val: analysis.thresholds.middle },
-                  { label: 'Yttre zon', color: '#ffff00', val: analysis.thresholds.outer }
+                  { label: 'Inre zon', color: '#10b981', val: analysis.thresholds.inner },
+                  { label: 'Mellanzon', color: '#f59e0b', val: analysis.thresholds.middle },
+                  { label: 'Yttre zon', color: '#6366f1', val: analysis.thresholds.outer }
                 ].map(item => (
-                  <div key={item.label} className="flex justify-between items-center py-2 px-3 rounded-xl border border-white/5 relative overflow-hidden group">
-                    {/* Colored Band Background */}
-                    <div 
-                      className="absolute inset-0 opacity-25 group-hover:opacity-30 transition-opacity" 
-                      style={{ backgroundColor: item.color }} 
-                    />
-                    <div className="relative z-10">
-                      <div className="text-white text-[10px] font-bold uppercase tracking-widest">{item.label}</div>
+                  <div key={item.label} className="flex justify-between items-center py-2.5 px-3 rounded-xl border border-white/10 relative overflow-hidden group bg-white/[0.03] hover:bg-white/[0.06] transition-all">
+                    <div className="flex items-center gap-3 relative z-10 w-full">
+                      <div 
+                        className="px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm" 
+                        style={{ 
+                          backgroundColor: `${item.color}20`, // 20 hex is ~12% opacity
+                          color: item.color,
+                          border: `1px solid ${item.color}40` // 40 hex is ~25% opacity
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                      <div className="flex-1" />
+                      <span className="font-mono font-black text-white text-[12px] tabular-nums bg-black/40 px-2.5 py-1 rounded-lg border border-white/10 shadow-inner">
+                        {Math.round(item.val).toLocaleString('sv-SE')} kr
+                      </span>
                     </div>
-                    <span className="relative z-10 font-mono font-black text-white text-[11px]">{Math.round(item.val).toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
               </div>
