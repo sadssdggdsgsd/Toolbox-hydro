@@ -807,7 +807,7 @@ export default function App() {
           minWidth: `${320 * uiScale}px`
         }}
       >
-        <div className="flex flex-col h-full w-[320px] shrink-0" style={{ transform: `scale(${uiScale})`, transformOrigin: 'top left' }}>
+        <div className="flex flex-col w-[320px] shrink-0" style={{ height: `${100 / uiScale}%`, transform: `scale(${uiScale})`, transformOrigin: 'top left' }}>
           <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 shrink-0">
@@ -1705,8 +1705,9 @@ export default function App() {
         </MapContainer>
 
         <div 
-          className="absolute top-6 right-6 z-[1000] w-80 max-h-[90%] flex flex-col gap-4 pointer-events-none transition-all duration-300"
+          className="absolute top-6 right-6 z-[1000] w-80 flex flex-col gap-4 pointer-events-none transition-all duration-300"
           style={{ 
+            maxHeight: `${92 / uiScale}%`,
             transform: `scale(${uiScale})`, 
             transformOrigin: 'top right'
           }}
