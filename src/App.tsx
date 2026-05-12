@@ -667,7 +667,13 @@ export default function App() {
     const results: Record<number, ReturnType<typeof getCostAt>> = {};
     Object.keys(scenarios).forEach(numStr => {
       const num = parseInt(numStr);
-      results[num] = getCostAt(scenarios[num].sources, testLocation);
+      const scen = scenarios[num];
+      // Use own test location if it's shown, otherwise fallback to sweetspot for comparison
+      const scenLoc = (scen.testLocation && scen.showTestLocation) 
+        ? scen.testLocation 
+        : runAnalysis(scen.sources).bestLoc;
+        
+      results[num] = getCostAt(scen.sources, scenLoc);
     });
     return results;
   }, [scenarios, testLocation]);
@@ -1764,7 +1770,9 @@ export default function App() {
                   const getScenarioData = (num: number) => {
                     const scen = scenarios[num];
                     if (!scen || !scen.sources[id]) return null;
-                    const scenLoc = scen.testLocation || (scen.showTestLocation ? scen.testLocation : null) || runAnalysis(scen.sources).bestLoc;
+                    const scenLoc = (scen.testLocation && scen.showTestLocation) 
+                      ? scen.testLocation 
+                      : runAnalysis(scen.sources).bestLoc;
                     
                     // Use the robust analysis calculation which handles splits
                     const result = getCostAt(scen.sources, scenLoc as [number, number]);
