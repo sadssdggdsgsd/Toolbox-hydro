@@ -202,7 +202,7 @@ const CUSTOM_THEMES = [
   {
     id: 'amber',
     color: '#d97706',
-    card: 'border-amber-100 bg-amber-50/30',
+    card: 'border-amber-300 bg-amber-50/30',
     title: 'text-amber-700',
     action: 'bg-amber-600',
     track: 'bg-amber-200',
@@ -215,7 +215,7 @@ const CUSTOM_THEMES = [
   {
     id: 'fuchsia',
     color: '#c026d3',
-    card: 'border-fuchsia-100 bg-fuchsia-50/30',
+    card: 'border-fuchsia-300 bg-fuchsia-50/30',
     title: 'text-fuchsia-700',
     action: 'bg-fuchsia-600',
     track: 'bg-fuchsia-200',
@@ -228,7 +228,7 @@ const CUSTOM_THEMES = [
   {
     id: 'rose',
     color: '#e11d48',
-    card: 'border-rose-100 bg-rose-50/30',
+    card: 'border-rose-300 bg-rose-50/30',
     title: 'text-rose-700',
     action: 'bg-rose-600',
     track: 'bg-rose-200',
@@ -249,7 +249,7 @@ const getSourceTheme = (name: string, data?: Source) => {
   switch (name) {
     case 'Tekniskt vatten':
       return {
-        card: 'border-cyan-100 bg-cyan-50/30',
+        card: 'border-cyan-300 bg-cyan-50/30',
         title: 'text-cyan-700',
         action: 'bg-cyan-500',
         track: 'bg-cyan-200',
@@ -260,7 +260,7 @@ const getSourceTheme = (name: string, data?: Source) => {
       };
     case 'Vatten-VA':
       return {
-        card: 'border-green-100 bg-green-50/30',
+        card: 'border-green-300 bg-green-50/30',
         title: 'text-green-700',
         action: 'bg-green-500',
         track: 'bg-green-200',
@@ -271,7 +271,7 @@ const getSourceTheme = (name: string, data?: Source) => {
       };
     case 'El':
       return {
-        card: 'border-red-100 bg-red-50/30',
+        card: 'border-red-300 bg-red-50/30',
         title: 'text-red-700',
         action: 'bg-red-500',
         track: 'bg-red-200',
@@ -282,7 +282,7 @@ const getSourceTheme = (name: string, data?: Source) => {
       };
     case 'Väg':
       return {
-        card: 'border-violet-100 bg-violet-50/30',
+        card: 'border-violet-300 bg-violet-50/30',
         title: 'text-violet-700',
         action: 'bg-violet-500',
         track: 'bg-violet-200',
@@ -293,7 +293,7 @@ const getSourceTheme = (name: string, data?: Source) => {
       };
     default:
       return {
-        card: 'border-slate-100 bg-slate-50/30',
+        card: 'border-slate-300 bg-slate-50/30',
         title: 'text-slate-700',
         action: 'bg-slate-500',
         track: 'bg-slate-200',
@@ -1938,7 +1938,7 @@ export default function App() {
             >
               <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3">
                 <Move className="w-4 h-4 text-indigo-400 animate-bounce" />
-                <span className="text-xs font-medium tracking-wide">Klicka på kartan för att flytta hela systemet (källor + sweetspot)</span>
+                <span className="text-xs font-medium tracking-wide">Klicka på kartan för att flytta allt</span>
               </div>
             </motion.div>
           )}
