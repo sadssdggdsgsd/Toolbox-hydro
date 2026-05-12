@@ -1507,7 +1507,7 @@ export default function App() {
                           pathOptions={{ 
                             color: '#ffffff',
                             weight: 3, 
-                            opacity: 0.7,
+                            opacity: 0.5,
                             dashArray: '8, 8'
                           }} 
                         />
@@ -1521,9 +1521,9 @@ export default function App() {
                     className: 'comparison-sweetspot',
                     html: `
                       <div class="flex items-center justify-center">
-                        <div class="w-5 h-5 rounded-full border border-dashed border-slate-300 bg-white/20 flex items-center justify-center">
-                          <div class="w-1 h-1 rounded-full bg-slate-300"></div>
-                        </div>
+                         <div class="w-5 h-5 rounded-full border-2 border-white shadow-lg overflow-hidden" 
+                              style="opacity: 0.5; background: ${num === 3 ? 'repeating-linear-gradient(45deg, #000, #000 3px, #fff 3px, #fff 6px)' : (num === 2 ? '#111' : '#fff')};">
+                         </div>
                       </div>
                     `,
                     iconSize: [20, 20],
@@ -1688,17 +1688,17 @@ export default function App() {
               icon={L.divIcon({
                 className: 'custom-sweetspot',
                 html: `
-                  <div class="sweetspot-container" style="opacity: 0.95;">
-                    <div class="sweetspot-ping-inner" style="border-color: #fff; background: rgba(255,255,255,0.2);"></div>
-                    <div class="sweetspot-ping-outer" style="border-color: #fff; opacity: 0.3;"></div>
-                    <div class="sweetspot-bullseye">
-                      <div class="bullseye-ring"></div>
-                      <div class="bullseye-dot"></div>
+                  <div class="sweetspot-container" style="opacity: 0.85;">
+                    <div class="sweetspot-ping-inner" style="border-color: ${activeScenario === 2 ? '#000' : '#fff'}; background: ${activeScenario === 2 ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'};"></div>
+                    <div class="sweetspot-ping-outer" style="border-color: ${activeScenario === 2 ? '#000' : '#fff'}; opacity: 0.3;"></div>
+                    <div class="sweetspot-bullseye shadow-xl" style="background: ${activeScenario === 3 ? 'repeating-linear-gradient(45deg, #000, #000 4px, #fff 4px, #fff 8px)' : (activeScenario === 2 ? '#111' : '#fff')}; border-color: ${activeScenario === 1 ? '#e2e8f0' : '#fff'};">
+                      <div class="bullseye-ring" style="border-color: ${activeScenario === 1 ? '#94a3b8' : '#fff'};"></div>
+                      <div class="bullseye-dot" style="background: ${activeScenario === 1 ? '#94a3b8' : '#fff'};"></div>
                     </div>
                   </div>
                 `,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
               })}
             />
           )}

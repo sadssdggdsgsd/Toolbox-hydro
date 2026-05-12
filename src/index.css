@@ -78,8 +78,8 @@ input[type=range]::-moz-range-thumb {
 
 .sweetspot-ping-inner {
   position: absolute;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border: 1px solid rgba(57, 63, 76, 0.4);
   border-radius: 50%;
   animation: sweetspot-pulse-inner 2s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -87,8 +87,8 @@ input[type=range]::-moz-range-thumb {
 
 .sweetspot-ping-outer {
   position: absolute;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border: 1px solid rgba(57, 63, 76, 0.2);
   border-radius: 50%;
   animation: sweetspot-pulse-outer 3s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -96,8 +96,8 @@ input[type=range]::-moz-range-thumb {
 
 .sweetspot-bullseye {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   background: transparent;
   border: 2px solid white;
   border-radius: 50%;
@@ -110,15 +110,15 @@ input[type=range]::-moz-range-thumb {
 
 .bullseye-ring {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border: 2.5px solid white;
   border-radius: 50%;
 }
 
 .bullseye-dot {
-  width: 3px;
-  height: 3px;
+  width: 2.5px;
+  height: 2.5px;
   background: white;
   border-radius: 50%;
 }
@@ -127,8 +127,8 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 
 /* Test Location Marker Styles */
