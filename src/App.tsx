@@ -14,7 +14,8 @@ import {
   Polygon,
   Tooltip, 
   useMapEvents,
-  GeoJSON
+  GeoJSON,
+  Popup
 } from 'react-leaflet';
 import L from 'leaflet';
 import { 
@@ -58,7 +59,7 @@ import {
 import { fetchElevationData, ElevationPoint } from './elevationService';
 
 // Basemap options
-type BasemapKey = 'orto' | 'standard' | 'cyclosm';
+type BasemapKey = 'orto' | 'topowebb' | 'topowebb_nedtonad';
 
 const BASEMAPS: Record<BasemapKey, { 
   name: string; 
@@ -66,6 +67,8 @@ const BASEMAPS: Record<BasemapKey, {
   attribution: string;
   type: 'tile' | 'wms';
   layers?: string;
+  version?: string;
+  transparent?: boolean;
 }> = {
   orto: {
     name: 'Orto',
@@ -73,17 +76,23 @@ const BASEMAPS: Record<BasemapKey, {
     attribution: '&copy; Esri',
     type: 'tile'
   },
-  standard: {
-    name: 'Karta',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap',
-    type: 'tile'
+  topowebb: {
+    name: 'Topowebb',
+    url: 'https://minkarta.lantmateriet.se/map/topowebb/',
+    attribution: '&copy; Lantmäteriet',
+    type: 'wms',
+    layers: 'topowebbkartan',
+    version: '1.1.1',
+    transparent: false
   },
-  cyclosm: {
-    name: 'CyclOSM',
-    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
-    attribution: '&copy; CyclOSM',
-    type: 'tile'
+  topowebb_nedtonad: {
+    name: 'Nedtonad',
+    url: 'https://minkarta.lantmateriet.se/map/topowebb/',
+    attribution: '&copy; Lantmäteriet',
+    type: 'wms',
+    layers: 'topowebbkartan_nedtonad',
+    version: '1.1.1',
+    transparent: false
   }
 };
 
@@ -358,6 +367,7 @@ interface MapLayer {
   transparent?: boolean;
   opacity: number;
   enabled: boolean;
+  version?: string;
 }
 
 const SOIL_COLORS: Record<string, string> = {
@@ -623,25 +633,39 @@ export default function App() {
     },
     {
       id: 'natura2000',
-      name: 'Natura 2000 (Länsstyrelsen)',
-      url: 'https://vic-wms.lansstyrelsen.se/arcgis/services/sk_skyddadeomraden_wms_extern/MapServer/WMSServer',
+      name: 'Natura 2000 (Naturvårdsverket)',
+      url: 'https://geodata.naturvardsverket.se/geoserver/ows',
       type: 'wms',
-      layers: '6,7',
+      layers: 'ps-n2k:PS.ProtectedSites.Natura2000',
       format: 'image/png',
       transparent: true,
       opacity: 0.6,
-      enabled: false
+      enabled: false,
+      version: '1.3.0'
     },
     {
       id: 'naturreservat',
-      name: 'Naturreservat (Länsstyrelsen)',
-      url: 'https://vic-wms.lansstyrelsen.se/arcgis/services/sk_skyddadeomraden_wms_extern/MapServer/WMSServer',
+      name: 'Naturreservat (Naturvårdsverket)',
+      url: 'https://geodata.naturvardsverket.se/geoserver/ows',
       type: 'wms',
-      layers: '0',
+      layers: 'ps-nvr:PS.ProtectedSites.NR',
       format: 'image/png',
       transparent: true,
       opacity: 0.6,
-      enabled: false
+      enabled: false,
+      version: '1.3.0'
+    },
+    {
+      id: 'vattenskydd',
+      name: 'Dricksvattenskydd (Naturvårdsverket)',
+      url: 'https://geodata.naturvardsverket.se/geoserver/ows',
+      type: 'wms',
+      layers: 'am-restriction:AM.drinkingWaterProtectionArea',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.5,
+      enabled: false,
+      version: '1.3.0'
     }
   ]);
   
@@ -1582,7 +1606,7 @@ export default function App() {
                                 />
                                 {layer.enabled && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                               </div>
-                              <span className={`text-[11px] font-medium transition-colors ${
+                              <span className={`text-[11px] font-semibold transition-colors ${
                                 layer.enabled ? 'text-slate-900' : 'text-slate-400'
                               }`}>
                                 {layer.name}
@@ -1634,6 +1658,19 @@ export default function App() {
               key={basemap}
               url={BASEMAPS[basemap].url}
               attribution={BASEMAPS[basemap].attribution}
+              zIndex={1}
+            />
+          )}
+          {BASEMAPS[basemap].type === 'wms' && (
+            <WMSTileLayer
+              key={basemap}
+              url={BASEMAPS[basemap].url}
+              layers={BASEMAPS[basemap].layers || ''}
+              attribution={BASEMAPS[basemap].attribution}
+              format="image/png"
+              transparent={BASEMAPS[basemap].transparent !== false}
+              version={BASEMAPS[basemap].version || '1.1.1'}
+              zIndex={1}
             />
           )}
 
@@ -1644,11 +1681,12 @@ export default function App() {
                 <WMSTileLayer
                   key={layer.id}
                   url={layer.url}
-                  layers={layer.layers}
-                  format={layer.format}
-                  transparent={layer.transparent}
+                  layers={layer.layers || '0'}
+                  format={layer.format || 'image/png'}
+                  transparent={layer.transparent !== false}
                   opacity={layer.opacity}
-                  zIndex={10}
+                  version={layer.version || '1.1.1'}
+                  zIndex={100}
                 />
               );
             }
@@ -1939,30 +1977,48 @@ export default function App() {
               key="map-hover-profile-marker"
               position={[hoveredProfilePoint.lat, hoveredProfilePoint.lon]}
               icon={L.divIcon({
-                className: 'hover-profile-marker',
+                className: 'hover-profile-marker-container',
                 html: `
-                  <div class="relative flex items-center justify-center" style="width: 24px; height: 24px;">
-                    <div class="absolute w-6 h-6 bg-indigo-500/20 rounded-full animate-ping"></div>
-                    <div class="absolute w-4 h-4 bg-indigo-500/40 rounded-full" style="opacity: 0.6;"></div>
-                    <div class="w-2.5 h-2.5 bg-white border border-slate-950 rounded-full shadow-md flex items-center justify-center z-10" style="margin-top: 1px;">
-                      <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${selectedSource?.color || '#6366f1'};"></div>
+                  <div style="position: relative; width: 0px; height: 0px; pointer-events: none;">
+                    <!-- Circle/Dot on Map Line -->
+                    <div style="
+                      position: absolute;
+                      left: -5.5px;
+                      top: -5.5px;
+                      width: 11px;
+                      height: 11px;
+                      border-radius: 50%;
+                      background-color: ${selectedSource?.color || '#6366f1'};
+                      border: 2px solid #ffffff;
+                      box-shadow: 0 1.5px 3px rgba(0,0,0,0.3);
+                    "></div>
+                    
+                    <!-- Integrated Elevation Label Tag, Positioned exactly above and to the right -->
+                    <div style="
+                      position: absolute;
+                      left: 8px;
+                      top: -22px;
+                      background-color: #ffffff;
+                      border: 1px solid ${selectedSource?.color || '#6366f1'};
+                      color: #0f172a;
+                      font-size: 8px;
+                      font-weight: bold;
+                      padding: 1px 5px;
+                      border-radius: 3.5px;
+                      white-space: nowrap;
+                      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                      font-family: inherit;
+                      line-height: normal;
+                    ">
+                      ${hoveredProfilePoint.elevation.toFixed(1)} m
                     </div>
                   </div>
                 `,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
               })}
               zIndexOffset={10000}
-            >
-              <Tooltip 
-                permanent 
-                direction="top" 
-                offset={[0, -12]} 
-                className="!bg-slate-950/95 !border-slate-800 !text-white !rounded-lg !px-2 !py-1 !text-[11px] !font-black !shadow-lg !backdrop-blur-sm pointer-events-none"
-              >
-                <span>{hoveredProfilePoint.elevation.toFixed(1)} m</span>
-              </Tooltip>
-            </Marker>
+            />
           )}
         </MapContainer>
 
