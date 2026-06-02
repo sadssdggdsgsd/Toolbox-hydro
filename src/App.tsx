@@ -2153,7 +2153,7 @@ export default function App() {
         {/* Map Controls */}
         <div 
           className="absolute right-8 z-[1000] flex items-center gap-4 transition-all duration-300 pointer-events-auto"
-          style={{ bottom: showElevationPanel ? '230px' : '32px' }}
+          style={{ bottom: showElevationPanel ? '185px' : '32px' }}
         >
           <div className="flex flex-col gap-2">
             <button 
@@ -2213,21 +2213,21 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 150 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-6 left-6 right-6 h-[190px] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col px-4 py-2.5 pointer-events-auto"
+              className="absolute bottom-6 left-6 right-6 h-[145px] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col px-4 py-1.5 pointer-events-auto"
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center shrink-0">
-                    <Mountain className="w-3.5 h-3.5 text-indigo-600" />
+                  <div className="w-5 h-5 rounded bg-indigo-50 flex items-center justify-center shrink-0">
+                    <Mountain className="w-3 h-3 text-indigo-600" />
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-extrabold text-slate-800 leading-tight">
+                  <div className="flex items-baseline gap-1.5 min-w-0">
+                    <h3 className="text-xs font-extrabold text-slate-800 leading-none">
                       Höjdprofil
                     </h3>
-                    <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+                    <span className="text-[9px] text-slate-400 font-medium leading-none border-l border-slate-200 pl-1.5 shrink-0">
                       Källa: EU-DEM (Eurostat/GISCO)
-                    </p>
+                    </span>
                   </div>
                 </div>
 
@@ -2265,12 +2265,18 @@ export default function App() {
                   
                   {elevationProfileData && elevationProfileData.length > 0 && (() => {
                     const isUsingTestLoc = !!(testLocation && showTestLocation);
+                    const maxDist = elevationStats?.totalDistance || 1;
+                    const isHoveringStart = hoveredProfilePoint && hoveredProfilePoint.distance <= (maxDist * 0.1);
+                    const isHoveringEnd = hoveredProfilePoint && (maxDist - hoveredProfilePoint.distance) <= (maxDist * 0.1);
+
                     return (
                       <>
-                        {/* Floating Indicator Labels at the top */}
-                        <div className="absolute left-6 top-2 bg-white/80 backdrop-blur-sm border border-slate-100 rounded px-1.5 py-0.5 text-[9px] font-medium text-slate-500 z-10 pointer-events-none select-none flex items-center">
-                          <span>{selectedSource?.name || 'Källpunkt'} ({elevationProfileData[0].elevation.toFixed(1)} m)</span>
-                        </div>
+                        {/* Floating Indicator Labels at the top on hover */}
+                        {isHoveringStart && (
+                          <div className="absolute left-6 top-2 bg-white/95 backdrop-blur-sm border border-slate-200 shadow-sm rounded px-1.5 py-0.5 text-[9px] font-bold text-indigo-950 z-10 pointer-events-none select-none flex items-center transition-all duration-150">
+                            <span>{selectedSource?.name || 'Källpunkt'} ({elevationProfileData[0].elevation.toFixed(1)} m)</span>
+                          </div>
+                        )}
 
                         {/* Centered Hovered Tooltip Badge - Static & Discrete */}
                         {hoveredProfilePoint && (
@@ -2281,9 +2287,11 @@ export default function App() {
                           </div>
                         )}
 
-                        <div className="absolute right-6 top-2 bg-white/80 backdrop-blur-sm border border-slate-100 rounded px-1.5 py-0.5 text-[9px] font-medium text-slate-500 z-10 pointer-events-none select-none flex items-center">
-                          <span>{isUsingTestLoc ? 'Vald plats' : 'Sweetspot'} ({elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m)</span>
-                        </div>
+                        {isHoveringEnd && (
+                          <div className="absolute right-6 top-2 bg-white/95 backdrop-blur-sm border border-slate-200 shadow-sm rounded px-1.5 py-0.5 text-[9px] font-bold text-indigo-950 z-10 pointer-events-none select-none flex items-center transition-all duration-150">
+                            <span>{isUsingTestLoc ? 'Vald plats' : 'Sweetspot'} ({elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m)</span>
+                          </div>
+                        )}
                       </>
                     );
                   })()}
@@ -2313,7 +2321,7 @@ export default function App() {
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart
                           data={elevationProfileData}
-                          margin={{ top: 25, right: 15, left: -22, bottom: -5 }}
+                          margin={{ top: 12, right: 15, left: -22, bottom: -10 }}
                           onMouseMove={(state: any) => {
                             if (state && state.activePayload && state.activePayload.length > 0) {
                               setHoveredProfilePoint(state.activePayload[0].payload as ElevationPoint);
@@ -2372,6 +2380,36 @@ export default function App() {
                               stroke="#ffffff" 
                               strokeWidth={2}
                               isFront={true}
+                              label={(props: any) => {
+                                const { cx, cy } = props;
+                                if (!cx || !cy) return null;
+                                const elevText = `${hoveredProfilePoint.elevation.toFixed(1)} m`;
+                                const width = Math.max(42, elevText.length * 5 + 12);
+                                return (
+                                  <g>
+                                    <rect 
+                                      x={cx - width / 2} 
+                                      y={cy - 24} 
+                                      width={width} 
+                                      height={15} 
+                                      rx={3.5} 
+                                      fill="#0f172a" 
+                                      stroke="#ffffff"
+                                      strokeWidth={1}
+                                    />
+                                    <text 
+                                      x={cx} 
+                                      y={cy - 14} 
+                                      fill="#ffffff" 
+                                      fontSize={9} 
+                                      fontWeight="bold" 
+                                      textAnchor="middle"
+                                    >
+                                      {elevText}
+                                    </text>
+                                  </g>
+                                );
+                              }}
                             />
                           )}
 
