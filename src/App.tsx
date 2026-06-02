@@ -2263,43 +2263,6 @@ export default function App() {
                 {/* Main chart rendering */}
                 <div className="flex-1 relative min-w-0 bg-slate-50/20 border border-slate-100 rounded-xl flex items-center justify-center">
                   
-                  {elevationProfileData && elevationProfileData.length > 0 && hoveredProfilePoint && (() => {
-                    const isUsingTestLoc = !!(testLocation && showTestLocation);
-                    const maxDist = elevationStats?.totalDistance || 1;
-                    const isHoveringStart = hoveredProfilePoint.distance <= (maxDist * 0.1);
-                    const isHoveringEnd = (maxDist - hoveredProfilePoint.distance) <= (maxDist * 0.1);
-
-                    return (
-                      <>
-                        {/* Floating Indicator Labels at the top of the chart on hover */}
-                        {isHoveringStart && (
-                          <div className="absolute left-6 top-3 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2 py-1 text-[10px] font-bold shadow-md z-[2000] pointer-events-none select-none flex items-center gap-1.5 transition-all duration-150">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                            <span>{selectedSource?.name || 'Källpunkt'}:</span>
-                            <span>{elevationProfileData[0].elevation.toFixed(1)} m</span>
-                          </div>
-                        )}
-
-                        {isHoveringEnd && (
-                          <div className="absolute right-6 top-3 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2 py-1 text-[10px] font-bold shadow-md z-[2000] pointer-events-none select-none flex items-center gap-1.5 transition-all duration-150">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span>{isUsingTestLoc ? 'Vald plats' : 'Sweetspot'}:</span>
-                            <span>{elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m</span>
-                          </div>
-                        )}
-                        
-                        {/* Dynamic Floating Label at the top center of the chart when hovering in the middle */}
-                        {!isHoveringStart && !isHoveringEnd && (
-                          <div className="absolute left-1/2 -translate-x-1/2 top-3 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2.5 py-1 text-[10px] font-bold shadow-md z-[2000] pointer-events-none select-none flex items-center gap-1.5 leading-none transition-all duration-150">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
-                            <span>Hovrad punkt:</span>
-                            <span>{hoveredProfilePoint.elevation.toFixed(1)} m</span>
-                            <span className="text-slate-400 font-normal">({(hoveredProfilePoint.distance / 1000).toFixed(2)} km)</span>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
 
                   {isFetchingElevation && (
                     <div className="flex flex-col items-center gap-2 text-slate-400">
@@ -2379,41 +2342,48 @@ export default function App() {
                           {/* Svävande marker på själva profillinjen under hovring (motsvarar kartpunkt) */}
                           {hoveredProfilePoint && (
                             <ReferenceDot 
+                              key={`hover-dot-${hoveredProfilePoint.distance}-${hoveredProfilePoint.elevation}`}
                               x={hoveredProfilePoint.distance} 
                               y={hoveredProfilePoint.elevation} 
-                              r={5.5} 
-                              fill={selectedSource?.color || '#6366f1'} 
-                              stroke="#ffffff" 
-                              strokeWidth={2}
                               isFront={true}
-                              label={(props: any) => {
+                              shape={(props: any) => {
                                 const { cx, cy } = props;
-                                if (!cx || !cy) return null;
-                                const elevText = `${hoveredProfilePoint.elevation.toFixed(1)} m`;
-                                const width = Math.max(42, elevText.length * 5 + 12);
+                                if (cx == null || cy == null) return null;
+                                const elevText = `${hoveredProfilePoint.elevation.toFixed(1)} m (${(hoveredProfilePoint.distance / 1000).toFixed(2)} km)`;
+                                const width = Math.max(75, elevText.length * 4.8 + 10);
                                 
-                                // Smart dynamic Y-positioning: if too high (cy < 32) render below, otherwise render above the point
-                                const isNearTop = cy < 32;
-                                const rectY = isNearTop ? (cy + 10) : (cy - 24);
-                                const textY = isNearTop ? (cy + 20) : (cy - 14);
+                                // Position exactly above the hover point
+                                const rectY = -22;
+                                const textY = -12;
                                 
                                 return (
-                                  <g>
+                                  <g className="pointer-events-none" transform={`translate(${cx}, ${cy})`}>
+                                    <circle 
+                                      cx={0} 
+                                      cy={0} 
+                                      r={5.5} 
+                                      fill={selectedSource?.color || '#6366f1'} 
+                                      stroke="#ffffff" 
+                                      strokeWidth={2}
+                                      style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }}
+                                    />
                                     <rect 
-                                      x={cx - width / 2} 
+                                      x={-width / 2} 
                                       y={rectY} 
                                       width={width} 
                                       height={15} 
                                       rx={3.5} 
                                       fill="#0f172a" 
+                                      fillOpacity={0.75}
                                       stroke="#ffffff"
+                                      strokeOpacity={0.3}
                                       strokeWidth={1}
                                     />
                                     <text 
-                                      x={cx} 
+                                      x={0} 
                                       y={textY} 
                                       fill="#ffffff" 
-                                      fontSize={9} 
+                                      fontSize={8.5} 
                                       fontWeight="bold" 
                                       textAnchor="middle"
                                     >
@@ -2425,72 +2395,137 @@ export default function App() {
                             />
                           )}
 
-                          {/* Reference markers for START and END on the graph curve, visually aligned with map designs */}
+                           {/* Reference markers for START and END on the graph curve, visually aligned with map designs */}
                           <ReferenceDot 
+                            key="start-dot"
                             x={0} 
                             y={elevationProfileData[0].elevation} 
                             shape={(props: any) => {
                               const { cx, cy } = props;
-                              if (!cx || !cy) return null;
+                              if (cx == null || cy == null) return null;
+                              
+                              const sourceName = selectedSource?.name || 'Källpunkt';
+                              const labelText = `${sourceName}: ${elevationProfileData[0].elevation.toFixed(1)} m`;
+                              const textWidth = labelText.length * 4.8 + 10;
+                              
                               return (
-                                <g transform={`translate(${cx}, ${cy})`}>
+                                <g className="pointer-events-none" transform={`translate(${cx}, ${cy})`}>
                                   <circle 
                                     cx={0} 
                                     cy={0} 
                                     r={6.5} 
                                     fill={selectedSource?.color || '#6366f1'} 
-                                    stroke="#000000" 
-                                    strokeWidth={2} 
+                                    stroke="#ffffff" 
+                                    strokeWidth={1.5} 
                                     style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} 
                                   />
+                                  
+                                  {/* Semi-transparent label aligned neatly to the upper right, always visible */}
+                                  <g>
+                                    <rect 
+                                      x={8} 
+                                      y={-22} 
+                                      width={textWidth} 
+                                      height={15} 
+                                      rx={3.5} 
+                                      fill="#0f172a" 
+                                      fillOpacity={0.75}
+                                      stroke="#ffffff"
+                                      strokeOpacity={0.3}
+                                      strokeWidth={1}
+                                    />
+                                    <text 
+                                      x={8 + textWidth / 2} 
+                                      y={-12} 
+                                      fill="#ffffff" 
+                                      fontSize={8.5} 
+                                      fontWeight="bold" 
+                                      textAnchor="middle"
+                                    >
+                                      {labelText}
+                                    </text>
+                                  </g>
                                 </g>
                               );
                             }}
                             isFront={true}
                           />
                           <ReferenceDot 
+                            key="end-dot"
                             x={elevationProfileData[elevationProfileData.length - 1].distance} 
                             y={elevationProfileData[elevationProfileData.length - 1].elevation} 
                             shape={(props: any) => {
                               const { cx, cy } = props;
-                              if (!cx || !cy) return null;
-                              if (isUsingTestLoc) {
-                                return (
-                                  <g transform={`translate(${cx - 10}, ${cy - 19})`}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4778A5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 1.5px 2.5px rgba(0,0,0,0.3))' }}>
-                                      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/>
-                                      <circle cx="12" cy="10" r="3" fill="white"/>
-                                    </svg>
-                                  </g>
-                                );
-                              } else {
-                                const isScenario3 = activeScenario === 3;
-                                const isScenario2 = activeScenario === 2;
-                                const isScenario1 = activeScenario === 1;
+                              if (cx == null || cy == null) return null;
+                              
+                              const targetName = isUsingTestLoc ? 'Vald plats' : 'Sweetspot';
+                              const labelText = `${targetName}: ${elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m`;
+                              const textWidth = labelText.length * 4.8 + 10;
+                              
+                              const isScenario3 = activeScenario === 3;
+                              const isScenario2 = activeScenario === 2;
+                              const isScenario1 = activeScenario === 1;
 
-                                const bg = isScenario3 
-                                  ? 'url(#stripePattern)' 
-                                  : (isScenario2 ? '#111111' : '#ffffff');
-                                const borderCol = isScenario1 ? '#e2e8f0' : '#ffffff';
-                                const ringCol = isScenario1 ? '#94a3b8' : '#ffffff';
-                                const dotCol = isScenario1 ? '#94a3b8' : '#ffffff';
+                              const bg = isScenario3 
+                                ? 'url(#stripePattern)' 
+                                : (isScenario2 ? '#111111' : '#ffffff');
+                              const borderCol = isScenario1 ? '#e2e8f0' : '#ffffff';
+                              const ringCol = isScenario1 ? '#94a3b8' : '#ffffff';
+                              const dotCol = isScenario1 ? '#94a3b8' : '#ffffff';
 
-                                return (
-                                  <g transform={`translate(${cx}, ${cy})`}>
-                                    {isScenario3 && (
-                                      <defs>
-                                        <pattern id="stripePattern" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                                          <rect width="3" height="6" fill="#000000" />
-                                          <rect x="3" width="3" height="6" fill="#ffffff" />
-                                        </pattern>
-                                      </defs>
-                                    )}
-                                    <circle cx={0} cy={0} r={8.5} fill={bg} stroke={borderCol} strokeWidth={1.5} style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} />
-                                    <circle cx={0} cy={0} r={4.5} fill="none" stroke={ringCol} strokeWidth={1.2} />
-                                    <circle cx={0} cy={0} r={1.2} fill={dotCol} />
+                              return (
+                                <g className="pointer-events-none" transform={`translate(${cx}, ${cy})`}>
+                                  {isScenario3 && (
+                                    <defs>
+                                      <pattern id="stripePattern" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                        <rect width="3" height="6" fill="#000000" />
+                                        <rect x="3" width="3" height="6" fill="#ffffff" />
+                                      </pattern>
+                                    </defs>
+                                  )}
+                                  
+                                  {isUsingTestLoc ? (
+                                    <g transform="translate(-10, -19)">
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4778A5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 1.5px 2.5px rgba(0,0,0,0.3))' }}>
+                                        <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/>
+                                        <circle cx="12" cy="10" r="3" fill="white"/>
+                                      </svg>
+                                    </g>
+                                  ) : (
+                                    <>
+                                      <circle cx={0} cy={0} r={8.5} fill={bg} stroke={borderCol} strokeWidth={1.5} style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} />
+                                      <circle cx={0} cy={0} r={4.5} fill="none" stroke={ringCol} strokeWidth={1.2} />
+                                      <circle cx={0} cy={0} r={1.2} fill={dotCol} />
+                                    </>
+                                  )}
+                                  
+                                  {/* Semi-transparent label offset to the upper left, always visible */}
+                                  <g>
+                                    <rect 
+                                      x={-textWidth - 8} 
+                                      y={-24} 
+                                      width={textWidth} 
+                                      height={15} 
+                                      rx={3.5} 
+                                      fill="#0f172a" 
+                                      fillOpacity={0.75}
+                                      stroke="#ffffff"
+                                      strokeOpacity={0.3}
+                                      strokeWidth={1}
+                                    />
+                                    <text 
+                                      x={-textWidth / 2 - 8} 
+                                      y={-14} 
+                                      fill="#ffffff" 
+                                      fontSize={8.5} 
+                                      fontWeight="bold" 
+                                      textAnchor="middle"
+                                    >
+                                      {labelText}
+                                    </text>
                                   </g>
-                                );
-                              }
+                                </g>
+                              );
                             }}
                             isFront={true}
                           />
@@ -2503,9 +2538,9 @@ export default function App() {
                               y={nd.elevation} 
                               shape={(props: any) => {
                                 const { cx, cy } = props;
-                                if (!cx || !cy) return null;
+                                if (cx == null || cy == null) return null;
                                 return (
-                                  <g transform={`translate(${cx}, ${cy})`}>
+                                  <g className="pointer-events-none" transform={`translate(${cx}, ${cy})`}>
                                     <circle 
                                       cx={0} 
                                       cy={0} 
