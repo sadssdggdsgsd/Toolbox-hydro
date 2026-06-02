@@ -2153,7 +2153,7 @@ export default function App() {
         {/* Map Controls */}
         <div 
           className="absolute right-8 z-[1000] flex items-center gap-4 transition-all duration-300 pointer-events-auto"
-          style={{ bottom: showElevationPanel ? '185px' : '32px' }}
+          style={{ bottom: showElevationPanel ? '220px' : '32px' }}
         >
           <div className="flex flex-col gap-2">
             <button 
@@ -2213,7 +2213,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 150 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-6 left-6 right-6 h-[145px] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col px-4 py-1.5 pointer-events-auto"
+              className="absolute bottom-6 left-6 right-6 h-[180px] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col px-4 py-2.5 pointer-events-auto"
             >
               {/* Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
@@ -2261,35 +2261,40 @@ export default function App() {
               {/* Panel Content Grid */}
               <div className="flex-1 flex gap-5 items-stretch min-h-0">
                 {/* Main chart rendering */}
-                <div className="flex-1 relative min-w-0 bg-slate-50/20 border border-slate-100 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="flex-1 relative min-w-0 bg-slate-50/20 border border-slate-100 rounded-xl flex items-center justify-center">
                   
-                  {elevationProfileData && elevationProfileData.length > 0 && (() => {
+                  {elevationProfileData && elevationProfileData.length > 0 && hoveredProfilePoint && (() => {
                     const isUsingTestLoc = !!(testLocation && showTestLocation);
                     const maxDist = elevationStats?.totalDistance || 1;
-                    const isHoveringStart = hoveredProfilePoint && hoveredProfilePoint.distance <= (maxDist * 0.1);
-                    const isHoveringEnd = hoveredProfilePoint && (maxDist - hoveredProfilePoint.distance) <= (maxDist * 0.1);
+                    const isHoveringStart = hoveredProfilePoint.distance <= (maxDist * 0.1);
+                    const isHoveringEnd = (maxDist - hoveredProfilePoint.distance) <= (maxDist * 0.1);
 
                     return (
                       <>
-                        {/* Floating Indicator Labels at the top on hover */}
+                        {/* Floating Indicator Labels at the top of the chart on hover */}
                         {isHoveringStart && (
-                          <div className="absolute left-6 top-2 bg-white/95 backdrop-blur-sm border border-slate-200 shadow-sm rounded px-1.5 py-0.5 text-[9px] font-bold text-indigo-950 z-10 pointer-events-none select-none flex items-center transition-all duration-150">
-                            <span>{selectedSource?.name || 'Källpunkt'} ({elevationProfileData[0].elevation.toFixed(1)} m)</span>
-                          </div>
-                        )}
-
-                        {/* Centered Hovered Tooltip Badge - Static & Discrete */}
-                        {hoveredProfilePoint && (
-                          <div className="absolute left-1/2 -translate-x-1/2 top-2 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2 py-0.5 text-[10px] font-bold shadow-md z-20 pointer-events-none select-none flex items-center gap-1.5 leading-none transition-all duration-150">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                            <span>{hoveredProfilePoint.elevation.toFixed(1)} m</span>
-                            <span className="text-slate-400 font-normal">({(hoveredProfilePoint.distance / 1000).toFixed(2)} km)</span>
+                          <div className="absolute left-6 top-3 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2 py-1 text-[10px] font-bold shadow-md z-[2000] pointer-events-none select-none flex items-center gap-1.5 transition-all duration-150">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                            <span>{selectedSource?.name || 'Källpunkt'}:</span>
+                            <span>{elevationProfileData[0].elevation.toFixed(1)} m</span>
                           </div>
                         )}
 
                         {isHoveringEnd && (
-                          <div className="absolute right-6 top-2 bg-white/95 backdrop-blur-sm border border-slate-200 shadow-sm rounded px-1.5 py-0.5 text-[9px] font-bold text-indigo-950 z-10 pointer-events-none select-none flex items-center transition-all duration-150">
-                            <span>{isUsingTestLoc ? 'Vald plats' : 'Sweetspot'} ({elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m)</span>
+                          <div className="absolute right-6 top-3 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2 py-1 text-[10px] font-bold shadow-md z-[2000] pointer-events-none select-none flex items-center gap-1.5 transition-all duration-150">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>{isUsingTestLoc ? 'Vald plats' : 'Sweetspot'}:</span>
+                            <span>{elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m</span>
+                          </div>
+                        )}
+                        
+                        {/* Dynamic Floating Label at the top center of the chart when hovering in the middle */}
+                        {!isHoveringStart && !isHoveringEnd && (
+                          <div className="absolute left-1/2 -translate-x-1/2 top-3 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2.5 py-1 text-[10px] font-bold shadow-md z-[2000] pointer-events-none select-none flex items-center gap-1.5 leading-none transition-all duration-150">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
+                            <span>Hovrad punkt:</span>
+                            <span>{hoveredProfilePoint.elevation.toFixed(1)} m</span>
+                            <span className="text-slate-400 font-normal">({(hoveredProfilePoint.distance / 1000).toFixed(2)} km)</span>
                           </div>
                         )}
                       </>
@@ -2321,7 +2326,8 @@ export default function App() {
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart
                           data={elevationProfileData}
-                          margin={{ top: 12, right: 15, left: -22, bottom: -10 }}
+                          style={{ overflow: 'visible' }}
+                          margin={{ top: 18, right: 15, left: -22, bottom: -8 }}
                           onMouseMove={(state: any) => {
                             if (state && state.activePayload && state.activePayload.length > 0) {
                               setHoveredProfilePoint(state.activePayload[0].payload as ElevationPoint);
@@ -2385,11 +2391,17 @@ export default function App() {
                                 if (!cx || !cy) return null;
                                 const elevText = `${hoveredProfilePoint.elevation.toFixed(1)} m`;
                                 const width = Math.max(42, elevText.length * 5 + 12);
+                                
+                                // Smart dynamic Y-positioning: if too high (cy < 32) render below, otherwise render above the point
+                                const isNearTop = cy < 32;
+                                const rectY = isNearTop ? (cy + 10) : (cy - 24);
+                                const textY = isNearTop ? (cy + 20) : (cy - 14);
+                                
                                 return (
                                   <g>
                                     <rect 
                                       x={cx - width / 2} 
-                                      y={cy - 24} 
+                                      y={rectY} 
                                       width={width} 
                                       height={15} 
                                       rx={3.5} 
@@ -2399,7 +2411,7 @@ export default function App() {
                                     />
                                     <text 
                                       x={cx} 
-                                      y={cy - 14} 
+                                      y={textY} 
                                       fill="#ffffff" 
                                       fontSize={9} 
                                       fontWeight="bold" 
