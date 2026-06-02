@@ -59,7 +59,7 @@ import {
 import { fetchElevationData, ElevationPoint } from './elevationService';
 
 // Basemap options
-type BasemapKey = 'orto' | 'topowebb' | 'topowebb_nedtonad';
+type BasemapKey = 'ortofoto' | 'topowebb' | 'topowebb_nedtonad' | 'terrangskuggning';
 
 const BASEMAPS: Record<BasemapKey, { 
   name: string; 
@@ -70,11 +70,14 @@ const BASEMAPS: Record<BasemapKey, {
   version?: string;
   transparent?: boolean;
 }> = {
-  orto: {
-    name: 'Orto',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri',
-    type: 'tile'
+  ortofoto: {
+    name: 'Ortofoto',
+    url: 'https://minkarta.lantmateriet.se/map/ortofoto/',
+    attribution: '&copy; Lantmäteriet',
+    type: 'wms',
+    layers: 'Ortofoto_0.5',
+    version: '1.1.1',
+    transparent: false
   },
   topowebb: {
     name: 'Topowebb',
@@ -93,6 +96,15 @@ const BASEMAPS: Record<BasemapKey, {
     layers: 'topowebbkartan_nedtonad',
     version: '1.1.1',
     transparent: false
+  },
+  terrangskuggning: {
+    name: 'Skuggning',
+    url: 'https://minkarta.lantmateriet.se/map/hojdmodell/',
+    attribution: '&copy; Lantmäteriet',
+    type: 'wms',
+    layers: 'terrangskuggning',
+    version: '1.1.1',
+    transparent: true
   }
 };
 
@@ -603,7 +615,7 @@ export default function App() {
   , [comparisonSources]);
 
   const [placingTestLocation, setPlacingTestLocation] = useState(false);
-  const [basemap, setBasemap] = useState<BasemapKey>('orto');
+  const [basemap, setBasemap] = useState<BasemapKey>('ortofoto');
   const [openTemplateMenu, setOpenTemplateMenu] = useState<string | null>(null);
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [wmsLayers, setWmsLayers] = useState<MapLayer[]>([
@@ -1595,8 +1607,8 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-1">
-                {(Object.entries(BASEMAPS) as [BasemapKey, typeof BASEMAPS['orto']][]).map(([key, config]) => (
+              <div className="grid grid-cols-4 gap-1">
+                {(Object.entries(BASEMAPS) as [BasemapKey, typeof BASEMAPS['ortofoto']][]).map(([key, config]) => (
                   <button
                     key={key}
                     onClick={() => setBasemap(key)}
