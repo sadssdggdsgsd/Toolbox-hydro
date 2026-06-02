@@ -666,6 +666,42 @@ export default function App() {
       opacity: 0.5,
       enabled: false,
       version: '1.3.0'
+    },
+    {
+      id: 'nmd_2023',
+      name: 'Nationella Marktäckedata 2023 (NMD v2.0)',
+      url: 'https://geodata.naturvardsverket.se/geoserver/ows',
+      type: 'wms',
+      layers: 'lc-nmd:LC.LandCoverRaster.Bas_2.0',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.6,
+      enabled: false,
+      version: '1.3.0'
+    },
+    {
+      id: 'nmd_2018',
+      name: 'Nationella Marktäckedata 2018 (NMD)',
+      url: 'https://geodata.naturvardsverket.se/geoserver/ows',
+      type: 'wms',
+      layers: 'lc-nmd:LC.LandCoverRaster.Bas.2018',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.6,
+      enabled: false,
+      version: '1.3.0'
+    },
+    {
+      id: 'nmd_fjallskog',
+      name: 'NMD Låg fjällskog 2018',
+      url: 'https://geodata.naturvardsverket.se/geoserver/ows',
+      type: 'wms',
+      layers: 'lc-nmd:LC.LandCoverRaster.LagFjallskog.2018',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.6,
+      enabled: false,
+      version: '1.3.0'
     }
   ]);
   
