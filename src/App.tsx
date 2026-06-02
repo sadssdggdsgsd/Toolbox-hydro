@@ -2198,9 +2198,9 @@ export default function App() {
         {!showElevationPanel && (
           <button
             onClick={() => setShowElevationPanel(true)}
-            className="absolute left-8 bottom-8 z-[1000] flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border border-slate-100 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-slate-300/30 transition-all duration-300 active:scale-95 w-auto pointer-events-auto"
+            className="absolute left-8 bottom-8 z-[1000] flex items-center gap-1.5 px-3 py-1.5 rounded-lg shadow-md border border-slate-100 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-slate-300/30 transition-all duration-300 active:scale-95 w-auto pointer-events-auto"
           >
-            <Mountain className="w-4 h-4 text-indigo-500 animate-pulse" />
+            <Mountain className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
             <span>Höjdprofil</span>
           </button>
         )}
@@ -2218,17 +2218,20 @@ export default function App() {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded bg-indigo-50 flex items-center justify-center shrink-0">
-                    <Mountain className="w-3 h-3 text-indigo-600" />
-                  </div>
-                  <div className="flex items-baseline gap-1.5 min-w-0">
-                    <h3 className="text-xs font-extrabold text-slate-800 leading-none">
+                  <button 
+                    onClick={() => setShowElevationPanel(false)}
+                    className="flex items-center gap-1.5 hover:opacity-75 active:scale-95 transition-all text-left group"
+                  >
+                    <div className="w-5 h-5 rounded bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                      <Mountain className="w-3 h-3 text-indigo-600" />
+                    </div>
+                    <h3 className="text-xs font-extrabold text-slate-800 leading-none group-hover:text-indigo-600 transition-colors">
                       Höjdprofil
                     </h3>
-                    <span className="text-[9px] text-slate-400 font-medium leading-none border-l border-slate-200 pl-1.5 shrink-0">
-                      Källa: EU-DEM (Eurostat/GISCO)
-                    </span>
-                  </div>
+                  </button>
+                  <span className="text-[9px] text-slate-400 font-medium leading-none border-l border-slate-200 pl-1.5 shrink-0 self-center">
+                    Källa: EU-DEM (Eurostat/GISCO)
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
@@ -2337,63 +2340,58 @@ export default function App() {
                             strokeWidth={2}
                             fillOpacity={1} 
                             fill="url(#elevationGrad)" 
+                            activeDot={(props: any) => {
+                              const { cx, cy, payload } = props;
+                              if (cx == null || cy == null || !payload) return null;
+                              
+                              const elevText = `${payload.elevation.toFixed(1)} m`;
+                              const width = Math.max(45, elevText.length * 4.8 + 10);
+                              
+                              // Position exactly above and to the right of the hover point
+                              const rectX = 8;
+                              const rectY = -22;
+                              const textX = 8 + width / 2;
+                              const textY = -12;
+                              
+                              return (
+                                <g className="pointer-events-none">
+                                  <circle 
+                                    cx={cx} 
+                                    cy={cy} 
+                                    r={5.5} 
+                                    fill={selectedSource?.color || '#6366f1'} 
+                                    stroke="#ffffff" 
+                                    strokeWidth={2}
+                                    style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }}
+                                  />
+                                  <rect 
+                                    x={cx + rectX} 
+                                    y={cy + rectY} 
+                                    width={width} 
+                                    height={15} 
+                                    rx={3.5} 
+                                    fill="#ffffff" 
+                                    fillOpacity={0.95}
+                                    stroke={selectedSource?.color || '#6366f1'}
+                                    strokeOpacity={0.7}
+                                    strokeWidth={1}
+                                    style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
+                                  />
+                                  <text 
+                                    x={cx + textX} 
+                                    y={cy + textY} 
+                                    fill="#0f172a" 
+                                    fillOpacity={0.9}
+                                    fontSize={8} 
+                                    fontWeight="bold" 
+                                    textAnchor="middle"
+                                  >
+                                    {elevText}
+                                  </text>
+                                </g>
+                              );
+                            }}
                           />
-                          
-                          {/* Svävande marker på själva profillinjen under hovring (motsvarar kartpunkt) */}
-                          {hoveredProfilePoint && (
-                            <ReferenceDot 
-                              key={`hover-dot-${hoveredProfilePoint.distance}-${hoveredProfilePoint.elevation}`}
-                              x={hoveredProfilePoint.distance} 
-                              y={hoveredProfilePoint.elevation} 
-                              isFront={true}
-                              shape={(props: any) => {
-                                const { cx, cy } = props;
-                                if (cx == null || cy == null) return null;
-                                const elevText = `${hoveredProfilePoint.elevation.toFixed(1)} m (${(hoveredProfilePoint.distance / 1000).toFixed(2)} km)`;
-                                const width = Math.max(75, elevText.length * 4.8 + 10);
-                                
-                                // Position exactly above the hover point
-                                const rectY = -22;
-                                const textY = -12;
-                                
-                                return (
-                                  <g className="pointer-events-none" transform={`translate(${cx}, ${cy})`}>
-                                    <circle 
-                                      cx={0} 
-                                      cy={0} 
-                                      r={5.5} 
-                                      fill={selectedSource?.color || '#6366f1'} 
-                                      stroke="#ffffff" 
-                                      strokeWidth={2}
-                                      style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }}
-                                    />
-                                    <rect 
-                                      x={-width / 2} 
-                                      y={rectY} 
-                                      width={width} 
-                                      height={15} 
-                                      rx={3.5} 
-                                      fill="#0f172a" 
-                                      fillOpacity={0.75}
-                                      stroke="#ffffff"
-                                      strokeOpacity={0.3}
-                                      strokeWidth={1}
-                                    />
-                                    <text 
-                                      x={0} 
-                                      y={textY} 
-                                      fill="#ffffff" 
-                                      fontSize={8.5} 
-                                      fontWeight="bold" 
-                                      textAnchor="middle"
-                                    >
-                                      {elevText}
-                                    </text>
-                                  </g>
-                                );
-                              }}
-                            />
-                          )}
 
                            {/* Reference markers for START and END on the graph curve, visually aligned with map designs */}
                           <ReferenceDot 
@@ -2429,16 +2427,17 @@ export default function App() {
                                       height={15} 
                                       rx={3.5} 
                                       fill="#0f172a" 
-                                      fillOpacity={0.75}
+                                      fillOpacity={0.45}
                                       stroke="#ffffff"
-                                      strokeOpacity={0.3}
+                                      strokeOpacity={0.15}
                                       strokeWidth={1}
                                     />
                                     <text 
                                       x={8 + textWidth / 2} 
                                       y={-12} 
                                       fill="#ffffff" 
-                                      fontSize={8.5} 
+                                      fillOpacity={0.75}
+                                      fontSize={8} 
                                       fontWeight="bold" 
                                       textAnchor="middle"
                                     >
@@ -2508,16 +2507,17 @@ export default function App() {
                                       height={15} 
                                       rx={3.5} 
                                       fill="#0f172a" 
-                                      fillOpacity={0.75}
+                                      fillOpacity={0.45}
                                       stroke="#ffffff"
-                                      strokeOpacity={0.3}
+                                      strokeOpacity={0.15}
                                       strokeWidth={1}
                                     />
                                     <text 
                                       x={-textWidth / 2 - 8} 
                                       y={-14} 
                                       fill="#ffffff" 
-                                      fontSize={8.5} 
+                                      fillOpacity={0.75}
+                                      fontSize={8} 
                                       fontWeight="bold" 
                                       textAnchor="middle"
                                     >
