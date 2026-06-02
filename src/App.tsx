@@ -39,11 +39,23 @@ import {
   Scissors,
   Split,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Mountain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
 import { runAnalysis, getCostAt, getDistance } from './analysis';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer,
+  ReferenceDot
+} from 'recharts';
+import { fetchElevationData, ElevationPoint } from './elevationService';
 
 // Basemap options
 type BasemapKey = 'orto' | 'standard' | 'cyclosm';
@@ -448,8 +460,8 @@ export default function App() {
   });
   const [activeScenario, setActiveScenario] = useState<number>(1);
   
-  const currentScenario = scenarios[activeScenario] || { sources: {}, testLocation: null, showTestLocation: false };
-  const sources = currentScenario.sources;
+  const currentScenario = scenarios[activeScenario] || { sources: {} as Record<string, Source>, testLocation: null, showTestLocation: false };
+  const sources = currentScenario.sources as Record<string, Source>;
   const testLocation = currentScenario.testLocation;
   const showTestLocation = currentScenario.showTestLocation;
 
@@ -638,6 +650,218 @@ export default function App() {
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [isRelocatingSweetSpot, setIsRelocatingSweetSpot] = useState(false);
   const [uiScale, setUiScale] = useState(1);
+
+  // Elevation Profile state
+  const [showElevationPanel, setShowElevationPanel] = useState(false);
+  const [selectedProfileSourceId, setSelectedProfileSourceId] = useState<string | null>(null);
+  const [elevationProfileData, setElevationProfileData] = useState<ElevationPoint[] | null>(null);
+  const [isFetchingElevation, setIsFetchingElevation] = useState(false);
+  const [elevationError, setElevationError] = useState<string | null>(null);
+  const [hoveredProfilePoint, setHoveredProfilePoint] = useState<ElevationPoint | null>(null);
+
+  // Target location (Sweetspot or manual test location)
+  const elevationTarget = useMemo(() => {
+    return (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
+  }, [testLocation, showTestLocation, analysis.bestLoc]);
+
+  // Selected source connection
+  const selectedSource = useMemo(() => {
+    if (!selectedProfileSourceId) return null;
+    return sources[selectedProfileSourceId] || null;
+  }, [sources, selectedProfileSourceId]);
+
+  // Full coordinate path for selected source
+  const pathCoords = useMemo(() => {
+    if (!selectedSource || !selectedSource.enabled) return null;
+    return [selectedSource.loc, ...selectedSource.nodes, elevationTarget] as [number, number][];
+  }, [selectedSource, elevationTarget]);
+
+  // Stringified path coordinates to prevent unnecessary re-fetching
+  const pathCoordsStr = useMemo(() => {
+    return pathCoords ? JSON.stringify(pathCoords) : '';
+  }, [pathCoords]);
+
+  // Fetch elevation data when path or eligibility changes
+  useEffect(() => {
+    if (!showElevationPanel || !selectedProfileSourceId || !pathCoords) {
+      setElevationProfileData(null);
+      return;
+    }
+
+    let isMounted = true;
+    const loadElevation = async () => {
+      setIsFetchingElevation(true);
+      setElevationError(null);
+      try {
+        const data = await fetchElevationData(pathCoords);
+        if (isMounted) {
+          setElevationProfileData(data);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.error("Kunde inte hämta höjddata:", err);
+          setElevationError(err.message || 'Kunde inte hämta höjddata via API');
+          setElevationProfileData(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsFetchingElevation(false);
+        }
+      }
+    };
+
+    loadElevation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [showElevationPanel, selectedProfileSourceId, pathCoordsStr]);
+
+  // Active and enabled sources
+  const activeAndEnabledSources = useMemo(() => {
+    return Object.values(sources).filter(s => s.enabled);
+  }, [sources]);
+
+  // Auto-select first active source if current selection is invalid
+  useEffect(() => {
+    if (activeAndEnabledSources.length > 0) {
+      if (!selectedProfileSourceId || !sources[selectedProfileSourceId]?.enabled) {
+        setSelectedProfileSourceId(activeAndEnabledSources[0].name);
+      }
+    } else {
+      setSelectedProfileSourceId(null);
+    }
+  }, [activeAndEnabledSources, selectedProfileSourceId, sources]);
+
+  // Stats calculated from elevationProfileData
+  const elevationStats = useMemo(() => {
+    if (!elevationProfileData || elevationProfileData.length === 0) return null;
+    const elevations = elevationProfileData.map(p => p.elevation);
+    const minElev = Math.min(...elevations);
+    const maxElev = Math.max(...elevations);
+    
+    let gain = 0;
+    let loss = 0;
+    for (let i = 0; i < elevationProfileData.length - 1; i++) {
+      const diff = elevationProfileData[i + 1].elevation - elevationProfileData[i].elevation;
+      if (diff > 0) {
+        gain += diff;
+      } else {
+        loss += Math.abs(diff);
+      }
+    }
+    const totalDistance = elevationProfileData[elevationProfileData.length - 1].distance;
+
+    return {
+      min: minElev,
+      max: maxElev,
+      gain: Math.round(gain),
+      loss: Math.round(loss),
+      totalDistance
+    };
+  }, [elevationProfileData]);
+
+  // Nodes in active source to show on elevation profile
+  const nodeProfilePoints = useMemo(() => {
+    if (!selectedSource || !selectedSource.enabled || !selectedSource.nodes.length || !elevationProfileData || elevationProfileData.length === 0) {
+      return [];
+    }
+
+    const distances: { index: number; distance: number; lat: number; lon: number }[] = [];
+    let cumulative = 0;
+    let prev = selectedSource.loc;
+
+    selectedSource.nodes.forEach((node, i) => {
+      cumulative += getDistance(prev, node);
+      distances.push({
+        index: i,
+        distance: cumulative,
+        lat: node[0],
+        lon: node[1]
+      });
+      prev = node;
+    });
+
+    return distances.map(nd => {
+      let bestPoint = elevationProfileData[0];
+      let minDiff = Math.abs(bestPoint.distance - nd.distance);
+
+      for (const p of elevationProfileData) {
+        const diff = Math.abs(p.distance - nd.distance);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestPoint = p;
+        }
+      }
+
+      return {
+        ...nd,
+        elevation: bestPoint.elevation
+      };
+    });
+  }, [selectedSource, elevationProfileData]);
+
+  // Rounded evenly distributed ticks for X axis (distance in meters)
+  const xAxisTicks = useMemo(() => {
+    if (!elevationStats) return [];
+    const maxDist = elevationStats.totalDistance;
+    if (maxDist <= 0) return [0];
+
+    const possibleIntervals = [10, 25, 50, 100, 150, 200, 250, 300, 400, 500, 1000, 1500, 2000, 3000, 5000];
+    const targetCount = 5; 
+    const idealInterval = maxDist / targetCount;
+    
+    let interval = possibleIntervals[possibleIntervals.length - 1];
+    for (const opt of possibleIntervals) {
+      if (opt >= idealInterval) {
+        interval = opt;
+        break;
+      }
+    }
+
+    const ticks: number[] = [];
+    for (let current = 0; current <= maxDist; current += interval) {
+      ticks.push(current);
+    }
+    
+    if (ticks[ticks.length - 1] < maxDist && (maxDist - ticks[ticks.length - 1]) > (interval * 0.3)) {
+      ticks.push(Math.round(maxDist));
+    } else if (ticks[ticks.length - 1] < maxDist) {
+      ticks[ticks.length - 1] = Math.round(maxDist);
+    }
+    return ticks;
+  }, [elevationStats]);
+
+  // Rounded evenly distributed ticks for Y axis (elevation in meters)
+  const yAxisTicksAndDomain = useMemo(() => {
+    if (!elevationStats) return { ticks: [], domain: [0, 100] };
+    const { min, max } = elevationStats;
+    
+    const diff = max - min;
+    const possibleIntervals = [1, 2, 5, 10, 20, 25, 30, 40, 50, 100, 150, 200];
+    const targetCount = 4; 
+    const idealInterval = diff / targetCount;
+    let interval = possibleIntervals[possibleIntervals.length - 1];
+    for (const opt of possibleIntervals) {
+      if (opt >= idealInterval) {
+        interval = opt;
+        break;
+      }
+    }
+
+    const roundedMin = Math.floor(min / interval) * interval;
+    const roundedMax = Math.ceil(max / interval) * interval;
+
+    const ticks: number[] = [];
+    for (let current = roundedMin; current <= roundedMax; current += interval) {
+      ticks.push(current);
+    }
+
+    return {
+      ticks,
+      domain: [roundedMin, roundedMax]
+    };
+  }, [elevationStats]);
 
   // Remove duplicate analysis declaration
 
@@ -1708,6 +1932,38 @@ export default function App() {
               })}
             />
           )}
+
+          {/* Hovered Elevation Profile Position Marker */}
+          {hoveredProfilePoint && (
+            <Marker 
+              key="map-hover-profile-marker"
+              position={[hoveredProfilePoint.lat, hoveredProfilePoint.lon]}
+              icon={L.divIcon({
+                className: 'hover-profile-marker',
+                html: `
+                  <div class="relative flex items-center justify-center" style="width: 24px; height: 24px;">
+                    <div class="absolute w-6 h-6 bg-indigo-500/20 rounded-full animate-ping"></div>
+                    <div class="absolute w-4 h-4 bg-indigo-500/40 rounded-full" style="opacity: 0.6;"></div>
+                    <div class="w-2.5 h-2.5 bg-white border border-slate-950 rounded-full shadow-md flex items-center justify-center z-10" style="margin-top: 1px;">
+                      <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${selectedSource?.color || '#6366f1'};"></div>
+                    </div>
+                  </div>
+                `,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+              })}
+              zIndexOffset={10000}
+            >
+              <Tooltip 
+                permanent 
+                direction="top" 
+                offset={[0, -12]} 
+                className="!bg-slate-950/95 !border-slate-800 !text-white !rounded-lg !px-2 !py-1 !text-[11px] !font-black !shadow-lg !backdrop-blur-sm pointer-events-none"
+              >
+                <span>{hoveredProfilePoint.elevation.toFixed(1)} m</span>
+              </Tooltip>
+            </Marker>
+          )}
         </MapContainer>
 
         <div 
@@ -1895,7 +2151,10 @@ export default function App() {
         </div>
 
         {/* Map Controls */}
-        <div className="absolute bottom-8 right-8 z-[1000] flex items-center gap-4">
+        <div 
+          className="absolute right-8 z-[1000] flex items-center gap-4 transition-all duration-300 pointer-events-auto"
+          style={{ bottom: showElevationPanel ? '230px' : '32px' }}
+        >
           <div className="flex flex-col gap-2">
             <button 
               onClick={() => mapInstance?.zoomIn()}
@@ -1934,6 +2193,300 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {/* Elevation Toggle Button */}
+        {!showElevationPanel && (
+          <button
+            onClick={() => setShowElevationPanel(true)}
+            className="absolute left-8 bottom-8 z-[1000] flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border border-slate-100 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-slate-300/30 transition-all duration-300 active:scale-95 w-auto pointer-events-auto"
+          >
+            <Mountain className="w-4 h-4 text-indigo-500 animate-pulse" />
+            <span>Höjdprofil</span>
+          </button>
+        )}
+
+        {/* Elevation Profile Panel */}
+        <AnimatePresence>
+          {showElevationPanel && (
+            <motion.div
+              initial={{ opacity: 0, y: 150 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 150 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute bottom-6 left-6 right-6 h-[190px] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col px-4 py-2.5 pointer-events-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center shrink-0">
+                    <Mountain className="w-3.5 h-3.5 text-indigo-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-extrabold text-slate-800 leading-tight">
+                      Höjdprofil
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+                      Källa: EU-DEM (Eurostat/GISCO)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  {/* Selector drop-down */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-slate-500">Välj linje:</span>
+                    <select
+                      value={selectedProfileSourceId || ''}
+                      onChange={(e) => setSelectedProfileSourceId(e.target.value)}
+                      className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold px-2 py-1 rounded text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                    >
+                      {activeAndEnabledSources.map(s => (
+                        <option key={s.name} value={s.name}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Close button */}
+                  <button
+                    onClick={() => setShowElevationPanel(false)}
+                    className="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-all active:scale-90"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Panel Content Grid */}
+              <div className="flex-1 flex gap-5 items-stretch min-h-0">
+                {/* Main chart rendering */}
+                <div className="flex-1 relative min-w-0 bg-slate-50/20 border border-slate-100 rounded-xl overflow-hidden flex items-center justify-center">
+                  
+                  {elevationProfileData && elevationProfileData.length > 0 && (() => {
+                    const isUsingTestLoc = !!(testLocation && showTestLocation);
+                    return (
+                      <>
+                        {/* Floating Indicator Labels at the top */}
+                        <div className="absolute left-6 top-2 bg-white/80 backdrop-blur-sm border border-slate-100 rounded px-1.5 py-0.5 text-[9px] font-medium text-slate-500 z-10 pointer-events-none select-none flex items-center">
+                          <span>{selectedSource?.name || 'Källpunkt'} ({elevationProfileData[0].elevation.toFixed(1)} m)</span>
+                        </div>
+
+                        {/* Centered Hovered Tooltip Badge - Static & Discrete */}
+                        {hoveredProfilePoint && (
+                          <div className="absolute left-1/2 -translate-x-1/2 top-2 bg-slate-900/90 backdrop-blur-sm border border-slate-800 text-white rounded px-2 py-0.5 text-[10px] font-bold shadow-md z-20 pointer-events-none select-none flex items-center gap-1.5 leading-none transition-all duration-150">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                            <span>{hoveredProfilePoint.elevation.toFixed(1)} m</span>
+                            <span className="text-slate-400 font-normal">({(hoveredProfilePoint.distance / 1000).toFixed(2)} km)</span>
+                          </div>
+                        )}
+
+                        <div className="absolute right-6 top-2 bg-white/80 backdrop-blur-sm border border-slate-100 rounded px-1.5 py-0.5 text-[9px] font-medium text-slate-500 z-10 pointer-events-none select-none flex items-center">
+                          <span>{isUsingTestLoc ? 'Vald plats' : 'Sweetspot'} ({elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m)</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                  {isFetchingElevation && (
+                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                      <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-indigo-600 animate-spin" />
+                      <span className="text-xs font-semibold">Hämtar höjddata...</span>
+                    </div>
+                  )}
+
+                  {!isFetchingElevation && elevationError && (
+                    <div className="text-xs text-rose-500 font-semibold p-4 text-center">
+                      {elevationError}
+                    </div>
+                  )}
+
+                  {!isFetchingElevation && !elevationError && (!elevationProfileData || elevationProfileData.length === 0) && (
+                    <div className="text-xs text-slate-400 font-semibold p-4 text-center">
+                      Ingen data tillgänglig. Säkerställ att källan är aktiverad och har en giltig rutt.
+                    </div>
+                  )}
+
+                  {!isFetchingElevation && !elevationError && elevationProfileData && elevationProfileData.length > 0 && (() => {
+                    const isUsingTestLoc = !!(testLocation && showTestLocation);
+                    return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={elevationProfileData}
+                          margin={{ top: 25, right: 15, left: -22, bottom: -5 }}
+                          onMouseMove={(state: any) => {
+                            if (state && state.activePayload && state.activePayload.length > 0) {
+                              setHoveredProfilePoint(state.activePayload[0].payload as ElevationPoint);
+                            } else {
+                              setHoveredProfilePoint(null);
+                            }
+                          }}
+                          onMouseLeave={() => setHoveredProfilePoint(null)}
+                        >
+                          <defs>
+                            <linearGradient id="elevationGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={selectedSource?.color || '#6366f1'} stopOpacity={0.4}/>
+                              <stop offset="95%" stopColor={selectedSource?.color || '#6366f1'} stopOpacity={0.0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="distance" 
+                            stroke="#94a3b8" 
+                            fontSize={9} 
+                            tickLine={false}
+                            ticks={xAxisTicks}
+                            type="number"
+                            domain={[0, elevationStats?.totalDistance || 'auto']}
+                            tickFormatter={(v) => `${Math.round(v)} m`}
+                          />
+                          <YAxis 
+                            stroke="#94a3b8" 
+                            fontSize={9} 
+                            tickLine={false}
+                            ticks={yAxisTicksAndDomain.ticks}
+                            type="number"
+                            domain={yAxisTicksAndDomain.domain}
+                            tickFormatter={(v) => `${Math.round(v)} m`}
+                          />
+                          <RechartsTooltip
+                            cursor={{ stroke: '#cbd5e1', strokeWidth: 1.2, strokeDasharray: '3 3' }}
+                            content={() => <div style={{ display: 'none' }} />}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="elevation" 
+                            stroke={selectedSource?.color || '#6366f1'} 
+                            strokeWidth={2}
+                            fillOpacity={1} 
+                            fill="url(#elevationGrad)" 
+                          />
+                          
+                          {/* Svävande marker på själva profillinjen under hovring (motsvarar kartpunkt) */}
+                          {hoveredProfilePoint && (
+                            <ReferenceDot 
+                              x={hoveredProfilePoint.distance} 
+                              y={hoveredProfilePoint.elevation} 
+                              r={5.5} 
+                              fill={selectedSource?.color || '#6366f1'} 
+                              stroke="#ffffff" 
+                              strokeWidth={2}
+                              isFront={true}
+                            />
+                          )}
+
+                          {/* Reference markers for START and END on the graph curve, visually aligned with map designs */}
+                          <ReferenceDot 
+                            x={0} 
+                            y={elevationProfileData[0].elevation} 
+                            shape={(props: any) => {
+                              const { cx, cy } = props;
+                              if (!cx || !cy) return null;
+                              return (
+                                <g transform={`translate(${cx}, ${cy})`}>
+                                  <circle 
+                                    cx={0} 
+                                    cy={0} 
+                                    r={6.5} 
+                                    fill={selectedSource?.color || '#6366f1'} 
+                                    stroke="#000000" 
+                                    strokeWidth={2} 
+                                    style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} 
+                                  />
+                                </g>
+                              );
+                            }}
+                            isFront={true}
+                          />
+                          <ReferenceDot 
+                            x={elevationProfileData[elevationProfileData.length - 1].distance} 
+                            y={elevationProfileData[elevationProfileData.length - 1].elevation} 
+                            shape={(props: any) => {
+                              const { cx, cy } = props;
+                              if (!cx || !cy) return null;
+                              if (isUsingTestLoc) {
+                                return (
+                                  <g transform={`translate(${cx - 10}, ${cy - 19})`}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4778A5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 1.5px 2.5px rgba(0,0,0,0.3))' }}>
+                                      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/>
+                                      <circle cx="12" cy="10" r="3" fill="white"/>
+                                    </svg>
+                                  </g>
+                                );
+                              } else {
+                                const isScenario3 = activeScenario === 3;
+                                const isScenario2 = activeScenario === 2;
+                                const isScenario1 = activeScenario === 1;
+
+                                const bg = isScenario3 
+                                  ? 'url(#stripePattern)' 
+                                  : (isScenario2 ? '#111111' : '#ffffff');
+                                const borderCol = isScenario1 ? '#e2e8f0' : '#ffffff';
+                                const ringCol = isScenario1 ? '#94a3b8' : '#ffffff';
+                                const dotCol = isScenario1 ? '#94a3b8' : '#ffffff';
+
+                                return (
+                                  <g transform={`translate(${cx}, ${cy})`}>
+                                    {isScenario3 && (
+                                      <defs>
+                                        <pattern id="stripePattern" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                          <rect width="3" height="6" fill="#000000" />
+                                          <rect x="3" width="3" height="6" fill="#ffffff" />
+                                        </pattern>
+                                      </defs>
+                                    )}
+                                    <circle cx={0} cy={0} r={8.5} fill={bg} stroke={borderCol} strokeWidth={1.5} style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} />
+                                    <circle cx={0} cy={0} r={4.5} fill="none" stroke={ringCol} strokeWidth={1.2} />
+                                    <circle cx={0} cy={0} r={1.2} fill={dotCol} />
+                                  </g>
+                                );
+                              }
+                            }}
+                            isFront={true}
+                          />
+
+                          {/* Intermediate custom node markers on the profile path */}
+                          {nodeProfilePoints.map((nd, idx) => (
+                            <ReferenceDot 
+                              key={`ref-node-${idx}`}
+                              x={nd.distance} 
+                              y={nd.elevation} 
+                              shape={(props: any) => {
+                                const { cx, cy } = props;
+                                if (!cx || !cy) return null;
+                                return (
+                                  <g transform={`translate(${cx}, ${cy})`}>
+                                    <circle 
+                                      cx={0} 
+                                      cy={0} 
+                                      r={5} 
+                                      fill="#ffffff" 
+                                      stroke="#000000" 
+                                      strokeWidth={1.5} 
+                                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}
+                                    />
+                                    <text 
+                                      y={-8} 
+                                      textAnchor="middle" 
+                                      className="text-[9px] font-bold fill-slate-500 font-sans pointer-events-none select-none"
+                                    >
+                                      {nd.index + 1}
+                                    </text>
+                                  </g>
+                                );
+                              }}
+                              isFront={true}
+                            />
+                          ))}
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    );
+                  })()}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isRelocatingSweetSpot && (
