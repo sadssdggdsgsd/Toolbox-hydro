@@ -2269,10 +2269,14 @@ export default function App() {
           )}
         </div>
 
-        {/* Map Controls */}
+         {/* Map Controls */}
         <div 
           className="absolute right-8 z-[1000] flex items-center gap-4 transition-all duration-300 pointer-events-auto"
-          style={{ bottom: showElevationPanel ? '220px' : '32px' }}
+          style={{ 
+            bottom: showElevationPanel ? `${220 * uiScale}px` : `${32 * uiScale}px`,
+            transform: `scale(${uiScale})`,
+            transformOrigin: 'bottom right'
+          }}
         >
           <div className="flex flex-col gap-2">
             <button 
@@ -2318,6 +2322,10 @@ export default function App() {
           <button
             onClick={() => setShowElevationPanel(true)}
             className="absolute left-8 bottom-8 z-[1000] flex items-center gap-1.5 px-3 py-1.5 rounded-lg shadow-md border border-slate-100 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 shadow-slate-300/30 transition-all duration-300 active:scale-95 w-auto pointer-events-auto"
+            style={{
+              transform: `scale(${uiScale})`,
+              transformOrigin: 'bottom left'
+            }}
           >
             <Mountain className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
             <span>Höjdprofil</span>
@@ -2332,35 +2340,56 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 150 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute bottom-6 left-6 right-6 h-[180px] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col px-4 py-2.5 pointer-events-auto"
+              className="absolute bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_15px_40px_rgba(0,0,0,0.12)] z-[1000] overflow-hidden flex flex-col pointer-events-auto shadow-slate-400/20"
+              style={{
+                bottom: `${24 * uiScale}px`,
+                left: `${24 * uiScale}px`,
+                right: `${24 * uiScale}px`,
+                height: `${180 * uiScale}px`,
+                padding: `${10 * uiScale}px ${16 * uiScale}px`,
+              }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
-                <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5"
+                style={{ paddingBottom: `${6 * uiScale}px`, marginBottom: `${6 * uiScale}px` }}
+              >
+                <div className="flex items-center" style={{ gap: `${8 * uiScale}px` }}>
                   <button 
                     onClick={() => setShowElevationPanel(false)}
-                    className="flex items-center gap-1.5 hover:opacity-75 active:scale-95 transition-all text-left group"
+                    className="flex items-center hover:opacity-75 active:scale-95 transition-all text-left group"
+                    style={{ gap: `${6 * uiScale}px` }}
                   >
-                    <div className="w-5 h-5 rounded bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
-                      <Mountain className="w-3 h-3 text-indigo-600" />
+                    <div 
+                      className="rounded bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors"
+                      style={{ width: `${20 * uiScale}px`, height: `${20 * uiScale}px` }}
+                    >
+                      <Mountain className="text-indigo-600" style={{ width: `${12 * uiScale}px`, height: `${12 * uiScale}px` }} />
                     </div>
-                    <h3 className="text-xs font-extrabold text-slate-800 leading-none group-hover:text-indigo-600 transition-colors">
+                    <h3 
+                      className="font-extrabold text-slate-800 leading-none group-hover:text-indigo-600 transition-colors"
+                      style={{ fontSize: `${12 * uiScale}px` }}
+                    >
                       Höjdprofil
                     </h3>
                   </button>
-                  <span className="text-[9px] text-slate-400 font-medium leading-none border-l border-slate-200 pl-1.5 shrink-0 self-center">
+                  <span 
+                    className="text-slate-400 font-medium leading-none border-l border-slate-200 shrink-0 self-center"
+                    style={{ fontSize: `${9 * uiScale}px`, paddingLeft: `${6 * uiScale}px`, marginLeft: `${6 * uiScale}px` }}
+                  >
                     Källa: EU-DEM (Eurostat/GISCO)
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center shrink-0" style={{ gap: `${12 * uiScale}px` }}>
                   {/* Selector drop-down */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-slate-500">Välj linje:</span>
+                  <div className="flex items-center" style={{ gap: `${6 * uiScale}px` }}>
+                    <span className="font-semibold text-slate-500" style={{ fontSize: `${10 * uiScale}px` }}>Välj linje:</span>
                     <select
                       value={selectedProfileSourceId || ''}
                       onChange={(e) => setSelectedProfileSourceId(e.target.value)}
-                      className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold px-2 py-1 rounded text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                      className="bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold rounded text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                      style={{ fontSize: `${11 * uiScale}px`, padding: `${4 * uiScale}px ${8 * uiScale}px` }}
                     >
                       {activeAndEnabledSources.map(s => (
                         <option key={s.name} value={s.name}>
@@ -2373,34 +2402,35 @@ export default function App() {
                   {/* Close button */}
                   <button
                     onClick={() => setShowElevationPanel(false)}
-                    className="w-6 h-6 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-all active:scale-90"
+                    className="rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-all active:scale-90"
+                    style={{ width: `${24 * uiScale}px`, height: `${24 * uiScale}px` }}
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X style={{ width: `${14 * uiScale}px`, height: `${14 * uiScale}px` }} />
                   </button>
                 </div>
               </div>
 
               {/* Panel Content Grid */}
-              <div className="flex-1 flex gap-5 items-stretch min-h-0">
+              <div className="flex-1 flex items-stretch min-h-0" style={{ gap: `${20 * uiScale}px` }}>
                 {/* Main chart rendering */}
                 <div className="flex-1 relative min-w-0 bg-slate-50/20 border border-slate-100 rounded-xl flex items-center justify-center">
                   
 
                   {isFetchingElevation && (
                     <div className="flex flex-col items-center gap-2 text-slate-400">
-                      <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-indigo-600 animate-spin" />
-                      <span className="text-xs font-semibold">Hämtar höjddata...</span>
+                      <div className="rounded-full border-2 border-slate-300 border-t-indigo-600 animate-spin" style={{ width: `${20 * uiScale}px`, height: `${20 * uiScale}px` }} />
+                      <span className="font-semibold" style={{ fontSize: `${12 * uiScale}px` }}>Hämtar höjddata...</span>
                     </div>
                   )}
 
                   {!isFetchingElevation && elevationError && (
-                    <div className="text-xs text-rose-500 font-semibold p-4 text-center">
+                    <div className="text-rose-500 font-semibold p-4 text-center" style={{ fontSize: `${12 * uiScale}px` }}>
                       {elevationError}
                     </div>
                   )}
 
                   {!isFetchingElevation && !elevationError && (!elevationProfileData || elevationProfileData.length === 0) && (
-                    <div className="text-xs text-slate-400 font-semibold p-4 text-center">
+                    <div className="text-slate-400 font-semibold p-4 text-center" style={{ fontSize: `${12 * uiScale}px` }}>
                       Ingen data tillgänglig. Säkerställ att källan är aktiverad och har en giltig rutt.
                     </div>
                   )}
@@ -2412,7 +2442,12 @@ export default function App() {
                         <AreaChart
                           data={elevationProfileData}
                           style={{ overflow: 'visible' }}
-                          margin={{ top: 18, right: 15, left: -22, bottom: -8 }}
+                          margin={{ 
+                            top: 18 * uiScale, 
+                            right: 15 * uiScale, 
+                            left: -22 * uiScale, 
+                            bottom: -8 * uiScale 
+                          }}
                           onMouseMove={(state: any) => {
                             if (state && state.activePayload && state.activePayload.length > 0) {
                               setHoveredProfilePoint(state.activePayload[0].payload as ElevationPoint);
@@ -2432,7 +2467,7 @@ export default function App() {
                           <XAxis 
                             dataKey="distance" 
                             stroke="#94a3b8" 
-                            fontSize={9} 
+                            fontSize={9 * uiScale} 
                             tickLine={false}
                             ticks={xAxisTicks}
                             type="number"
@@ -2441,7 +2476,7 @@ export default function App() {
                           />
                           <YAxis 
                             stroke="#94a3b8" 
-                            fontSize={9} 
+                            fontSize={9 * uiScale} 
                             tickLine={false}
                             ticks={yAxisTicksAndDomain.ticks}
                             type="number"
@@ -2449,14 +2484,14 @@ export default function App() {
                             tickFormatter={(v) => `${Math.round(v)} m`}
                           />
                           <RechartsTooltip
-                            cursor={{ stroke: '#cbd5e1', strokeWidth: 1.2, strokeDasharray: '3 3' }}
+                            cursor={{ stroke: '#cbd5e1', strokeWidth: 1.2 * uiScale, strokeDasharray: '3 3' }}
                             content={() => <div style={{ display: 'none' }} />}
                           />
                           <Area 
                             type="monotone" 
                             dataKey="elevation" 
                             stroke={selectedSource?.color || '#6366f1'} 
-                            strokeWidth={2}
+                            strokeWidth={2 * uiScale}
                             fillOpacity={1} 
                             fill="url(#elevationGrad)" 
                             activeDot={(props: any) => {
@@ -2464,31 +2499,32 @@ export default function App() {
                               if (cx == null || cy == null || !payload) return null;
                               
                               const elevText = `${payload.elevation.toFixed(1)} m`;
-                              const width = Math.max(45, elevText.length * 4.8 + 10);
+                              const width = Math.max(45 * uiScale, (elevText.length * 4.8 + 10) * uiScale);
+                              const height = 15 * uiScale;
                               
                               // Position exactly above and to the right of the hover point
-                              const rectX = 8;
-                              const rectY = -22;
-                              const textX = 8 + width / 2;
-                              const textY = -12;
+                              const rectX = 8 * uiScale;
+                              const rectY = -22 * uiScale;
+                              const textX = rectX + width / 2;
+                              const textY = rectY + height - 3.5 * uiScale;
                               
                               return (
                                 <g className="pointer-events-none">
                                   <circle 
                                     cx={cx} 
                                     cy={cy} 
-                                    r={5.5} 
+                                    r={5.5 * uiScale} 
                                     fill={selectedSource?.color || '#6366f1'} 
                                     stroke="#ffffff" 
-                                    strokeWidth={2}
+                                    strokeWidth={2 * uiScale}
                                     style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }}
                                   />
                                   <rect 
                                     x={cx + rectX} 
                                     y={cy + rectY} 
                                     width={width} 
-                                    height={15} 
-                                    rx={3.5} 
+                                    height={height} 
+                                    rx={3.5 * uiScale} 
                                     fill="#ffffff" 
                                     fillOpacity={0.95}
                                     stroke={selectedSource?.color || '#6366f1'}
@@ -2501,7 +2537,7 @@ export default function App() {
                                     y={cy + textY} 
                                     fill="#0f172a" 
                                     fillOpacity={0.9}
-                                    fontSize={8} 
+                                    fontSize={8 * uiScale} 
                                     fontWeight="bold" 
                                     textAnchor="middle"
                                   >
@@ -2523,28 +2559,33 @@ export default function App() {
                               
                               const sourceName = selectedSource?.name || 'Källpunkt';
                               const labelText = `${sourceName}: ${elevationProfileData[0].elevation.toFixed(1)} m`;
-                              const textWidth = labelText.length * 4.8 + 10;
+                              const textWidth = (labelText.length * 4.8 + 10) * uiScale;
+                              const height = 15 * uiScale;
+                              const rectX = 8 * uiScale;
+                              const rectY = -22 * uiScale;
+                              const textX = rectX + textWidth / 2;
+                              const textY = rectY + height - 3.5 * uiScale;
                               
                               return (
                                 <g className="pointer-events-none" transform={`translate(${cx}, ${cy})`}>
                                   <circle 
                                     cx={0} 
                                     cy={0} 
-                                    r={6.5} 
+                                    r={6.5 * uiScale} 
                                     fill={selectedSource?.color || '#6366f1'} 
                                     stroke="#ffffff" 
-                                    strokeWidth={1.5} 
+                                    strokeWidth={1.5 * uiScale} 
                                     style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} 
                                   />
                                   
                                   {/* Semi-transparent label aligned neatly to the upper right, always visible */}
                                   <g>
                                     <rect 
-                                      x={8} 
-                                      y={-22} 
+                                      x={rectX} 
+                                      y={rectY} 
                                       width={textWidth} 
-                                      height={15} 
-                                      rx={3.5} 
+                                      height={height} 
+                                      rx={3.5 * uiScale} 
                                       fill="#0f172a" 
                                       fillOpacity={0.45}
                                       stroke="#ffffff"
@@ -2552,11 +2593,11 @@ export default function App() {
                                       strokeWidth={1}
                                     />
                                     <text 
-                                      x={8 + textWidth / 2} 
-                                      y={-12} 
+                                      x={textX} 
+                                      y={textY} 
                                       fill="#ffffff" 
                                       fillOpacity={0.75}
-                                      fontSize={8} 
+                                      fontSize={8 * uiScale} 
                                       fontWeight="bold" 
                                       textAnchor="middle"
                                     >
@@ -2578,7 +2619,12 @@ export default function App() {
                               
                               const targetName = isUsingTestLoc ? 'Vald plats' : 'Sweetspot';
                               const labelText = `${targetName}: ${elevationProfileData[elevationProfileData.length - 1].elevation.toFixed(1)} m`;
-                              const textWidth = labelText.length * 4.8 + 10;
+                              const textWidth = (labelText.length * 4.8 + 10) * uiScale;
+                              const height = 15 * uiScale;
+                              const rectX = -textWidth - 8 * uiScale;
+                              const rectY = -24 * uiScale;
+                              const textX = rectX + textWidth / 2;
+                              const textY = rectY + height - 3.5 * uiScale;
                               
                               const isScenario3 = activeScenario === 3;
                               const isScenario2 = activeScenario === 2;
@@ -2603,28 +2649,28 @@ export default function App() {
                                   )}
                                   
                                   {isUsingTestLoc ? (
-                                    <g transform="translate(-10, -19)">
-                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4778A5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 1.5px 2.5px rgba(0,0,0,0.3))' }}>
+                                    <g transform={`translate(${-10 * uiScale}, ${-19 * uiScale})`}>
+                                      <svg width={20 * uiScale} height={20 * uiScale} viewBox="0 0 24 24" fill="none" stroke="#4778A5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 1.5px 2.5px rgba(0,0,0,0.3))' }}>
                                         <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/>
                                         <circle cx="12" cy="10" r="3" fill="white"/>
                                       </svg>
                                     </g>
                                   ) : (
                                     <>
-                                      <circle cx={0} cy={0} r={8.5} fill={bg} stroke={borderCol} strokeWidth={1.5} style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} />
-                                      <circle cx={0} cy={0} r={4.5} fill="none" stroke={ringCol} strokeWidth={1.2} />
-                                      <circle cx={0} cy={0} r={1.2} fill={dotCol} />
+                                      <circle cx={0} cy={0} r={8.5 * uiScale} fill={bg} stroke={borderCol} strokeWidth={1.5 * uiScale} style={{ filter: 'drop-shadow(0 1.5px 3px rgba(0,0,0,0.3))' }} />
+                                      <circle cx={0} cy={0} r={4.5 * uiScale} fill="none" stroke={ringCol} strokeWidth={1.2 * uiScale} />
+                                      <circle cx={0} cy={0} r={1.2 * uiScale} fill={dotCol} />
                                     </>
                                   )}
                                   
                                   {/* Semi-transparent label offset to the upper left, always visible */}
                                   <g>
                                     <rect 
-                                      x={-textWidth - 8} 
-                                      y={-24} 
+                                      x={rectX} 
+                                      y={rectY} 
                                       width={textWidth} 
-                                      height={15} 
-                                      rx={3.5} 
+                                      height={height} 
+                                      rx={3.5 * uiScale} 
                                       fill="#0f172a" 
                                       fillOpacity={0.45}
                                       stroke="#ffffff"
@@ -2632,11 +2678,11 @@ export default function App() {
                                       strokeWidth={1}
                                     />
                                     <text 
-                                      x={-textWidth / 2 - 8} 
-                                      y={-14} 
+                                      x={textX} 
+                                      y={textY} 
                                       fill="#ffffff" 
                                       fillOpacity={0.75}
-                                      fontSize={8} 
+                                      fontSize={8 * uiScale} 
                                       fontWeight="bold" 
                                       textAnchor="middle"
                                     >
@@ -2649,7 +2695,7 @@ export default function App() {
                             isFront={true}
                           />
 
-                          {/* Intermediate custom node markers on the profile path */}
+                           {/* Intermediate custom node markers on the profile path */}
                           {nodeProfilePoints.map((nd, idx) => (
                             <ReferenceDot 
                               key={`ref-node-${idx}`}
@@ -2663,16 +2709,17 @@ export default function App() {
                                     <circle 
                                       cx={0} 
                                       cy={0} 
-                                      r={5} 
+                                      r={5 * uiScale} 
                                       fill="#ffffff" 
                                       stroke="#000000" 
-                                      strokeWidth={1.5} 
+                                      strokeWidth={1.5 * uiScale} 
                                       style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}
                                     />
                                     <text 
-                                      y={-8} 
+                                      y={-8 * uiScale} 
                                       textAnchor="middle" 
-                                      className="text-[9px] font-bold fill-slate-500 font-sans pointer-events-none select-none"
+                                      className="font-bold fill-slate-500 font-sans pointer-events-none select-none"
+                                      style={{ fontSize: `${9 * uiScale}px` }}
                                     >
                                       {nd.index + 1}
                                     </text>
