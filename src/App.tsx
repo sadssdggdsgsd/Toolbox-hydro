@@ -380,6 +380,7 @@ interface MapLayer {
   opacity: number;
   enabled: boolean;
   version?: string;
+  attribution?: string;
 }
 
 const SOIL_COLORS: Record<string, string> = {
@@ -714,6 +715,19 @@ export default function App() {
       opacity: 0.6,
       enabled: false,
       version: '1.3.0'
+    },
+    {
+      id: 'fornlamningar_punkt',
+      name: 'Fornlämningar (Riksantikvarieämbetet)',
+      url: 'https://pub.raa.se/visning/lamningar_v1/wms',
+      type: 'wms',
+      layers: 'lamning_punkt',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.8,
+      enabled: false,
+      version: '1.1.1',
+      attribution: '© Riksantikvarieämbetet'
     }
   ]);
   
@@ -1730,6 +1744,7 @@ export default function App() {
                   key={layer.id}
                   url={layer.url}
                   layers={layer.layers || '0'}
+                  attribution={layer.attribution}
                   format={layer.format || 'image/png'}
                   transparent={layer.transparent !== false}
                   opacity={layer.opacity}
@@ -1867,17 +1882,17 @@ export default function App() {
                     <Polyline 
                       positions={segmentB} 
                       pathOptions={{ 
-                        color: '#0369a1', // sky-700
-                        weight: (testLocation && showTestLocation) ? 7 : 5, 
-                        opacity: (testLocation && showTestLocation) ? 0.9 : 0.7,
+                        color: '#1e3a8a', // blue-900 (mörka färgen från panelen)
+                        weight: (testLocation && showTestLocation) ? 11 : 9, 
+                        opacity: (testLocation && showTestLocation) ? 0.95 : 0.85,
                         dashArray: 'none'
                       }} 
                     />
                     <Polyline 
                       positions={segmentB} 
                       pathOptions={{ 
-                        color: '#bae6fd', // sky-200 (core of double line)
-                        weight: (testLocation && showTestLocation) ? 2 : 1, 
+                        color: '#60a5fa', // blue-400 (ljusare matchande blå)
+                        weight: (testLocation && showTestLocation) ? 4.5 : 3.5, 
                         opacity: 1,
                         dashArray: 'none'
                       }} 
