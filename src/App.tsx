@@ -1126,8 +1126,9 @@ export default function App() {
         <div className="flex flex-col w-[320px] shrink-0" style={{ height: `${100 / uiScale}%`, transform: `scale(${uiScale})`, transformOrigin: 'top left' }}>
           <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 shrink-0">
-              Sweetspotfinder
+            <h1 className="text-[17px] tracking-tight text-slate-900 flex items-center shrink-0 select-none">
+              <span className="font-black tracking-tight text-slate-950">SWEETSPOT</span>
+              <span className="font-light text-slate-500 tracking-wide">FINDER</span>
             </h1>
             <div className="flex-1 flex justify-center">
               <div className="flex gap-1 p-0.5">
