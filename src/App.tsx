@@ -41,7 +41,8 @@ import {
   Split,
   ZoomIn,
   ZoomOut,
-  Mountain
+  Mountain,
+  MousePointerClick
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
@@ -345,7 +346,8 @@ function MapClickHandler({
   isRelocatingSweetSpot,
   onAction,
   onPlaceTest,
-  onRelocate
+  onRelocate,
+  onMapClick
 }: { 
   activeSource: string | null; 
   activeAction: ActiveAction;
@@ -354,8 +356,9 @@ function MapClickHandler({
   onAction: (latlng: [number, number]) => void;
   onPlaceTest: (latlng: [number, number]) => void;
   onRelocate: (latlng: [number, number]) => void;
+  onMapClick?: (latlng: [number, number], map: L.Map, containerPoint: L.Point) => void;
 }) {
-  useMapEvents({
+  const map = useMapEvents({
     click(e) {
       if (placingTestLocation) {
         onPlaceTest([e.latlng.lat, e.latlng.lng]);
@@ -363,6 +366,10 @@ function MapClickHandler({
         onRelocate([e.latlng.lat, e.latlng.lng]);
       } else if (activeSource && activeAction) {
         onAction([e.latlng.lat, e.latlng.lng]);
+      } else {
+        if (onMapClick) {
+          onMapClick([e.latlng.lat, e.latlng.lng], map, e.containerPoint);
+        }
       }
     },
   });
@@ -381,6 +388,7 @@ interface MapLayer {
   enabled: boolean;
   version?: string;
   attribution?: string;
+  clickQueryEnabled?: boolean;
 }
 
 const SOIL_COLORS: Record<string, string> = {
@@ -625,24 +633,27 @@ export default function App() {
       name: 'Jordarter 1:25k - 1:100k (SGU)',
       url: 'https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1/collections/grundlager/items',
       type: 'feature',
-      opacity: 0.5,
-      enabled: false
+      opacity: 0.8,
+      enabled: false,
+      clickQueryEnabled: false
     },
     {
       id: 'jordarter-250',
       name: 'Jordarter 1:250k (SGU)',
       url: 'https://api.sgu.se/oppnadata/jordarter250k/ogc/features/v1/collections/grundlager/items',
       type: 'feature',
-      opacity: 0.5,
-      enabled: false
+      opacity: 0.8,
+      enabled: false,
+      clickQueryEnabled: false
     },
     {
       id: 'jordarter-1m',
       name: 'Jordarter 1:1miljon (SGU)',
       url: 'https://api.sgu.se/oppnadata/jordarter1miljon/ogc/features/v1/collections/grundlager/items',
       type: 'feature',
-      opacity: 0.5,
-      enabled: false
+      opacity: 0.8,
+      enabled: false,
+      clickQueryEnabled: false
     },
     {
       id: 'natura2000',
@@ -652,9 +663,10 @@ export default function App() {
       layers: 'ps-n2k:PS.ProtectedSites.Natura2000',
       format: 'image/png',
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       enabled: false,
-      version: '1.3.0'
+      version: '1.3.0',
+      clickQueryEnabled: false
     },
     {
       id: 'naturreservat',
@@ -664,9 +676,10 @@ export default function App() {
       layers: 'ps-nvr:PS.ProtectedSites.NR',
       format: 'image/png',
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       enabled: false,
-      version: '1.3.0'
+      version: '1.3.0',
+      clickQueryEnabled: false
     },
     {
       id: 'vattenskydd',
@@ -676,9 +689,10 @@ export default function App() {
       layers: 'am-restriction:AM.drinkingWaterProtectionArea',
       format: 'image/png',
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.8,
       enabled: false,
-      version: '1.3.0'
+      version: '1.3.0',
+      clickQueryEnabled: false
     },
     {
       id: 'nmd_2023',
@@ -688,9 +702,10 @@ export default function App() {
       layers: 'lc-nmd:LC.LandCoverRaster.Bas_2.0',
       format: 'image/png',
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       enabled: false,
-      version: '1.3.0'
+      version: '1.3.0',
+      clickQueryEnabled: false
     },
     {
       id: 'nmd_2018',
@@ -700,9 +715,10 @@ export default function App() {
       layers: 'lc-nmd:LC.LandCoverRaster.Bas.2018',
       format: 'image/png',
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       enabled: false,
-      version: '1.3.0'
+      version: '1.3.0',
+      clickQueryEnabled: false
     },
     {
       id: 'nmd_fjallskog',
@@ -712,22 +728,66 @@ export default function App() {
       layers: 'lc-nmd:LC.LandCoverRaster.LagFjallskog.2018',
       format: 'image/png',
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       enabled: false,
-      version: '1.3.0'
+      version: '1.3.0',
+      clickQueryEnabled: false
     },
     {
-      id: 'fornlamningar_punkt',
+      id: 'fornlamningar',
       name: 'Fornlämningar (Riksantikvarieämbetet)',
       url: 'https://pub.raa.se/visning/lamningar_v1/wms',
       type: 'wms',
-      layers: 'lamning_punkt',
+      layers: 'fornlamning,ovrkulthistlamning,mojligfornlamning',
       format: 'image/png',
       transparent: true,
       opacity: 0.8,
       enabled: false,
-      version: '1.1.1',
-      attribution: '© Riksantikvarieämbetet'
+      version: '1.3.0',
+      attribution: '© Riksantikvarieämbetet (CC0)',
+      clickQueryEnabled: false
+    },
+    {
+      id: 'sgu_berggrund_50_250k',
+      name: 'Berggrund 1:50k - 1:250k (SGU)',
+      url: 'https://maps3.sgu.se/geoserver/berg/ows',
+      type: 'wms',
+      layers: 'SE.GOV.SGU.BERG.GEOLOGISK_ENHET.YTA.50K',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.8,
+      enabled: false,
+      version: '1.3.0',
+      attribution: '© Sveriges geologiska undersökning (SGU)',
+      clickQueryEnabled: false
+    },
+    {
+      id: 'sgu_brunnar',
+      name: 'Brunnar (SGU)',
+      url: 'https://maps3.sgu.se/geoserver/grundvatten/ows',
+      type: 'wms',
+      layers: 'SE.GOV.SGU.BRUNNAR.250K',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.8,
+      enabled: false,
+      version: '1.3.0',
+      attribution: '© Sveriges geologiska undersökning (SGU)',
+      clickQueryEnabled: false
+    },
+    {
+      id: 'sgu_jorddjupsmodell',
+      name: 'Jorddjupsmodell (SGU)',
+      url: 'https://maps3.sgu.se/geoserver/misc/ows',
+      type: 'wms',
+      layers: 'SE.GOV.SGU.MISC.JORDDJUPSMODELL.RASTER_INTERVALL',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.8,
+      enabled: false,
+      version: '1.3.0',
+      attribution: '© Sveriges geologiska undersökning (SGU)',
+      clickQueryEnabled: false
     }
   ]);
   
@@ -744,6 +804,12 @@ export default function App() {
   const [isFetchingElevation, setIsFetchingElevation] = useState(false);
   const [elevationError, setElevationError] = useState<string | null>(null);
   const [hoveredProfilePoint, setHoveredProfilePoint] = useState<ElevationPoint | null>(null);
+
+  // Map click query states
+  const [mapClickPos, setMapClickPos] = useState<[number, number] | null>(null);
+  const [mapClickQueryLoading, setMapClickQueryLoading] = useState(false);
+  const [mapClickQueryResults, setMapClickQueryResults] = useState<any[] | null>(null);
+  const [showQueryResultsPanel, setShowQueryResultsPanel] = useState(false);
 
   // Target location (Sweetspot or manual test location)
   const elevationTarget = useMemo(() => {
@@ -1115,11 +1181,271 @@ export default function App() {
     setIsRelocatingSweetSpot(false);
   };
 
+  const translatePropertyKey = (key: string): string => {
+    const translations: Record<string, string> = {
+      // Bedrock (Berggrund)
+      LITOLOGI: 'Bergart',
+      HUVUDLITOLOGI: 'Huvudbergart',
+      ALDER_MIN: 'Minålder (miljoner år)',
+      ALDER_MAX: 'Maxålder (miljoner år)',
+      ROCK_CLASS: 'Bergartsklass',
+      TEKTONISK_ENHET: 'Tektonisk enhet',
+      
+      // Wells (Brunnar)
+      BRUNNSTYP: 'Brunnstyp',
+      DJUP: 'Brunnsdjup',
+      JORDDJUP: 'Jorddjup till berg',
+      KAPACITET: 'Vattenkapacitet',
+      AVSER: 'Användningsområde',
+      TEKNISK_DATA: 'Tekniska detaljer',
+      ELEVATION: 'Höjd (m.öh.)',
+      
+      // Soil Depth Model (Jorddjupsmodell)
+      GRAY_INDEX: 'Jorddjup (index)',
+      PALETTE_INDEX: 'Färgindex',
+      description: 'Tolkat jorddjup',
+
+      // Soil Types (Jordarter SGU OGC/REST Features)
+      jg2_tx: 'Jordart',
+      JORDART_KOD: 'Jordartskod',
+      jg3_tx: 'Detaljerad beskrivning',
+      LERA_HALT: 'Lerahalt',
+      MORAN_TYP: 'Moräntyp',
+
+      // Protected sites (Natura 2000, Naturreservat, Vattenskydd)
+      N2K_NAMN: 'Natura 2000 namn',
+      N2K_KOD: 'Natura 2000 kod',
+      NAMN: 'Namn',
+      SKYDD_TYP: 'Skyddstyp',
+      BESKRIVNING: 'Beskrivning',
+      STATUS: 'Status',
+      AREAL_HA: 'Areal (hektar)',
+      LAGUTRULLNING: 'Beslutsunderlag / Lagrum',
+
+      // Archaeological Remains (Fornlämningar)
+      lamningtyp: 'Lämningstyp',
+      antikv_betydelse: 'Antikvarisk bedömning',
+      beskrivning: 'Beskrivning',
+      undertyp: 'Undertyp',
+      status: 'Status',
+      namn: 'Lämningens namn'
+    };
+
+    const cleanKey = key.trim();
+    const upperKey = cleanKey.toUpperCase();
+    
+    if (translations[cleanKey]) return translations[cleanKey];
+    if (translations[upperKey]) return translations[upperKey];
+    
+    return cleanKey.replace(/_/g, ' ');
+  };
+
+  const isIgnoredProperty = (key: string): boolean => {
+    const ignored = [
+      'OBJECTID', 'objectid', 'SGU_ID', 'sgu_id', 'id', 'ID', 'geom', 'GEOMETRY', 'geometry', 'SHAPE', 'shape',
+      'SHAPE_Length', 'SHAPE_Area', 'shape_Length', 'shape_Area', 'gml_id', 'gml_parent_id', 'gml_parent_property',
+      'fid', 'FID', 'bbox', 'BBOX', 'VERSION', 'version', 'UPPDATERAD_TID', 'skapad_tid'
+    ];
+    return ignored.includes(key) || key.startsWith('gml:') || key.startsWith('sgu:');
+  };
+
+  const getQueryProperties = (result: any): { title: string; properties: Record<string, any> }[] => {
+    if (!result || !result.data) return [];
+    
+    if (result.type === 'feature_json' || result.type === 'wms_json') {
+      const features = result.data?.features || [];
+      if (features.length === 0) return [];
+      
+      return features.map((f: any, idx: number) => {
+        // Interpret SGU Soil Depth Model GRAY_INDEX mapping to friendly Swedish ranges if description is missing
+        if (result.layerId === 'sgu_jorddjupsmodell') {
+          const grayValue = f.properties?.GRAY_INDEX ?? f.properties?.value ?? f.properties?.Band_1 ?? f.properties?.palette_index;
+          if (grayValue !== undefined && !f.properties?.description) {
+            const valNum = parseInt(String(grayValue));
+            let customDesc = '';
+            if (valNum === 1) customDesc = 'Mindre än 1 meter (< 1 m)';
+            else if (valNum === 2) customDesc = 'Mellan 1 och 3 meter (1 - 3 m)';
+            else if (valNum === 3) customDesc = 'Mellan 3 och 5 meter (3 - 5 m)';
+            else if (valNum === 4) customDesc = 'Mellan 5 och 10 meter (5 - 10 m)';
+            else if (valNum === 5) customDesc = 'Mellan 10 och 20 meter (10 - 20 m)';
+            else if (valNum === 6) customDesc = 'Mer än 20 meter (> 20 m)';
+            else customDesc = `Index: ${valNum}`;
+            
+            f.properties = {
+              ...f.properties,
+              description: customDesc
+            };
+          }
+        }
+
+        let title = '';
+        if (f.properties?.LITOLOGI) {
+          title = String(f.properties.LITOLOGI);
+        } else if (f.properties?.jg2_tx) {
+          title = String(f.properties.jg2_tx);
+        } else if (f.properties?.NAMN || f.properties?.namn) {
+          title = String(f.properties.NAMN || f.properties.namn);
+        } else if (f.properties?.BRUNNSTYP) {
+          title = String(f.properties.BRUNNSTYP);
+        } else if (f.properties?.lamningtyp) {
+          title = String(f.properties.lamningtyp);
+        } else if (result.layerId === 'sgu_jorddjupsmodell') {
+          title = f.properties?.description || `Djupindex: ${f.properties?.GRAY_INDEX ?? 'Okänt'}`;
+        } else {
+          title = f.id ? String(f.id).split('.').pop() || String(f.id) : `Träff ${idx + 1}`;
+        }
+        
+        const props: Record<string, any> = {};
+        if (f.properties) {
+          Object.entries(f.properties).forEach(([k, v]) => {
+            if (!isIgnoredProperty(k) && v !== null && v !== undefined && String(v).trim() !== '') {
+              props[k] = v;
+            }
+          });
+        }
+        
+        return { title, properties: props };
+      });
+    }
+
+    if (result.type === 'text' && typeof result.data === 'string') {
+      return [{ title: 'Beskrivning', properties: { 'Information': result.data } }];
+    }
+
+    return [];
+  };
+
+  const handleMapClick = async (latlng: [number, number], map: L.Map, containerPoint: L.Point) => {
+    const queryLayers = wmsLayers.filter(l => l.enabled && l.clickQueryEnabled !== false);
+    if (queryLayers.length === 0) return;
+
+    setMapClickPos(latlng);
+    setMapClickQueryLoading(true);
+    setShowQueryResultsPanel(true);
+    setMapClickQueryResults([]);
+
+    const [lat, lng] = latlng;
+
+    const queryPromises = queryLayers.map(async (layer) => {
+      // Feature rest-based layers
+      if (layer.type === 'feature') {
+        const bbox = `${lng - 0.00035},${lat - 0.00015},${lng + 0.00035},${lat + 0.00015}`;
+        const fetchUrl = `${layer.url}?bbox=${bbox}&limit=5&f=json`;
+        try {
+          const response = await fetch(fetchUrl);
+          const json = await response.json();
+          return {
+            layerId: layer.id,
+            layerName: layer.name,
+            type: 'feature_json',
+            data: json
+          };
+        } catch (err) {
+          console.error(`Error querying OGC feature layer ${layer.name}:`, err);
+          return {
+            layerId: layer.id,
+            layerName: layer.name,
+            type: 'error',
+            data: String(err)
+          };
+        }
+      } else {
+        // Standard WMS GetFeatureInfo
+        const size = map.getSize();
+        const bounds = map.getBounds();
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        const isV13 = layer.version === '1.3.0';
+
+        const bboxStr = isV13
+          ? `${sw.lat},${sw.lng},${ne.lat},${ne.lng}`
+          : `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+
+        const x = Math.round(containerPoint.x);
+        const y = Math.round(containerPoint.y);
+
+        const params: Record<string, string> = {
+          SERVICE: 'WMS',
+          VERSION: layer.version || '1.1.1',
+          REQUEST: 'GetFeatureInfo',
+          LAYERS: layer.layers || '',
+          QUERY_LAYERS: layer.layers || '',
+          BBOX: bboxStr,
+          FEATURE_COUNT: '5',
+          WIDTH: String(size.x),
+          HEIGHT: String(size.y),
+          INFO_FORMAT: 'application/json'
+        };
+
+        if (isV13) {
+          params.CRS = 'EPSG:4326';
+          params.I = String(x);
+          params.J = String(y);
+        } else {
+          params.SRS = 'EPSG:4326';
+          params.X = String(x);
+          params.Y = String(y);
+        }
+
+        const urlObj = new URL(layer.url);
+        Object.entries(params).forEach(([key, val]) => {
+          urlObj.searchParams.set(key, val);
+        });
+
+        try {
+          const response = await fetch(urlObj.toString());
+          const textResult = await response.text();
+          try {
+            const parsed = JSON.parse(textResult);
+            return {
+              layerId: layer.id,
+              layerName: layer.name,
+              type: 'wms_json',
+              data: parsed
+            };
+          } catch {
+            if (textResult && textResult.trim().length > 0 && !textResult.includes('<?xml') && !textResult.includes('<ServiceExceptionReport')) {
+              return {
+                layerId: layer.id,
+                layerName: layer.name,
+                type: 'text',
+                data: textResult.substring(0, 500)
+              };
+            }
+            return {
+              layerId: layer.id,
+              layerName: layer.name,
+              type: 'html_or_empty',
+              data: null
+            };
+          }
+        } catch (err) {
+          console.error(`Error querying WMS layer ${layer.name}:`, err);
+          return {
+            layerId: layer.id,
+            layerName: layer.name,
+            type: 'error',
+            data: String(err)
+          };
+        }
+      }
+    });
+
+    try {
+      const results = await Promise.all(queryPromises);
+      setMapClickQueryResults(results.filter(r => r !== null));
+    } catch (err) {
+      console.error("Error running map queries:", err);
+    } finally {
+      setMapClickQueryLoading(false);
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-slate-100 text-slate-800 overflow-hidden font-sans">
       {/* Sidebar */}
       <aside 
-        className="h-full border-r border-slate-200 bg-white flex flex-col z-[1001] shadow-lg transition-all duration-300 overflow-hidden"
+        className="h-full border-r border-slate-200 bg-white flex flex-col z-[1001] shadow-lg transition-all duration-300 overflow-visible"
         style={{ 
           width: `${320 * uiScale}px`,
           minWidth: `${320 * uiScale}px`
@@ -1335,7 +1661,7 @@ export default function App() {
                           <input 
                             type="text" 
                             value={sdata.name}
-                            onChange={(e) => updateSource(id, { name: e.target.value })}
+                            onChange={(e) => updateSource(sid, { name: e.target.value })}
                             className={`font-black text-[11px] bg-transparent border-none focus:outline-none focus:ring-1 rounded px-1 w-full ${(stheme as any).ring || 'focus:ring-slate-300'} ${stheme.title}`}
                           />
                         ) : (
@@ -1644,10 +1970,10 @@ export default function App() {
               <AnimatePresence>
                 {showLayerMenu && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute bottom-full left-0 right-0 mb-2 p-3 bg-white rounded-xl shadow-2xl border border-slate-200 z-[2000]"
+                    initial={{ opacity: 0, x: -12, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -12, scale: 0.95 }}
+                    className="absolute left-[calc(100%+20px)] bottom-0 w-[290px] p-4 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-200/85 z-[2000]"
                   >
                     <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                       <span className="text-[11px] font-bold text-slate-700">Lager</span>
@@ -1655,8 +1981,8 @@ export default function App() {
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                      {wmsLayers.map(layer => (
+                    <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                      {wmsLayers.map((layer, index) => (
                         <div key={layer.id} className="space-y-2">
                           <div className="flex items-center justify-between">
                             <label className="flex items-center gap-2 cursor-pointer group">
@@ -1680,21 +2006,39 @@ export default function App() {
                           </div>
                           
                           {layer.enabled && (
-                            <div className="pl-5 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[9px] text-slate-400 uppercase font-bold">Transparens</span>
-                                <span className="text-[9px] font-mono text-slate-500">{Math.round(layer.opacity * 100)}%</span>
+                            <div className="pl-5 space-y-2 border-l border-slate-100 mt-1">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] text-slate-400 uppercase font-bold">Transparens</span>
+                                  <span className="text-[9px] font-mono text-slate-500">{Math.round(layer.opacity * 100)}%</span>
+                                </div>
+                                <input 
+                                  type="range" 
+                                  min="0" 
+                                  max="1" 
+                                  step="0.05"
+                                  value={layer.opacity}
+                                  onChange={(e) => updateWmsLayer(layer.id, { opacity: parseFloat(e.target.value) })}
+                                  className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                />
                               </div>
-                              <input 
-                                type="range" 
-                                min="0" 
-                                max="1" 
-                                step="0.05"
-                                value={layer.opacity}
-                                onChange={(e) => updateWmsLayer(layer.id, { opacity: parseFloat(e.target.value) })}
-                                className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                              />
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-[9px] text-slate-450 uppercase font-bold">Info på kartan</span>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={!!layer.clickQueryEnabled}
+                                    onChange={(e) => updateWmsLayer(layer.id, { clickQueryEnabled: e.target.checked })}
+                                  />
+                                  <div className="w-6 h-3.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-2.5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                              </div>
                             </div>
+                          )}
+
+                          {index < wmsLayers.length - 1 && (
+                            <div className="border-b border-slate-100/70 pt-2" />
                           )}
                         </div>
                       ))}
@@ -1774,7 +2118,42 @@ export default function App() {
               setPlacingTestLocation(false);
             }}
             onRelocate={handleRelocate}
+            onMapClick={handleMapClick}
           />
+
+          {/* Temporary click query position marker */}
+          {mapClickPos && showQueryResultsPanel && (
+            <>
+              <CircleMarker
+                center={mapClickPos}
+                radius={18}
+                pathOptions={{
+                  fillColor: '#4f46e5',
+                  color: '#ffffff',
+                  weight: 1.5,
+                  fillOpacity: 0.15,
+                  dashArray: '3 3'
+                }}
+              />
+              <CircleMarker
+                center={mapClickPos}
+                radius={6}
+                pathOptions={{
+                  fillColor: '#4f46e5',
+                  color: '#ffffff',
+                  weight: 2,
+                  fillOpacity: 0.95
+                }}
+              >
+                <Tooltip permanent direction="top" offset={[0, -6]}>
+                  <div className="font-sans font-bold text-[10px] text-slate-800 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                    <span>Lagerinfo-punkt</span>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            </>
+          )}
 
           {/* Analysis Contours */}
           {showSweetSpot && analysis.contourData.map((contour, i) => (
@@ -2271,6 +2650,123 @@ export default function App() {
             </motion.div>
           )}
         </div>
+
+        {/* Map Click Query Results Panel */}
+        <AnimatePresence>
+          {showQueryResultsPanel && mapClickPos && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="absolute top-6 left-[340px] bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[1000] overflow-hidden flex flex-col pointer-events-auto shadow-slate-400/20"
+              style={{
+                width: `${300 * uiScale}px`,
+                maxHeight: `calc(100% - ${showElevationPanel ? 250 * uiScale : 60}px)`,
+                transform: `scale(${uiScale})`,
+                transformOrigin: 'top left'
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-3.5 border-b border-slate-100 bg-slate-50/85">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
+                    <Info className="w-3.5 h-3.5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-wider leading-none">Information på platsen</h3>
+                    <p className="text-[8.5px] font-mono text-slate-400 leading-none mt-1">
+                      {mapClickPos[0].toFixed(5)}°N, {mapClickPos[1].toFixed(5)}°Ö
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowQueryResultsPanel(false)}
+                  className="w-5 h-5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-3.5 space-y-4 custom-scrollbar max-h-[460px]">
+                {mapClickQueryLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                    <div className="w-7 h-7 rounded-full border-2 border-slate-200 border-t-indigo-600 animate-spin" />
+                    <span className="text-[10px] font-bold text-slate-500">Hämtar GIS-information...</span>
+                  </div>
+                ) : mapClickQueryResults && mapClickQueryResults.length > 0 ? (
+                  (() => {
+                    const activeAndEnabledResults = mapClickQueryResults.filter(result => {
+                      const l = wmsLayers.find(layer => layer.id === result.layerId);
+                      return l?.enabled && l?.clickQueryEnabled !== false;
+                    });
+
+                    if (activeAndEnabledResults.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-8 text-center text-slate-400">
+                          <MousePointerClick className="w-5 h-5 mb-2 text-indigo-400 animate-pulse" />
+                          <p className="text-[10px] font-black uppercase text-slate-705 tracking-wider">Inga aktiva sökbara lager</p>
+                          <p className="text-[9px] max-w-[180px] mt-1 leading-normal text-slate-450">
+                            Aktivera först klick-info för dina lager i lagerlistan.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return activeAndEnabledResults.map((result) => {
+                      const parsedFeatures = getQueryProperties(result);
+                      return (
+                        <div key={result.layerId} className="space-y-1.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest bg-indigo-50/70 px-1.5 py-0.5 rounded border border-indigo-100">
+                              {result.layerName}
+                            </span>
+                          </div>
+
+                          {parsedFeatures.length === 0 ? (
+                            <div className="text-[10px] text-slate-450 italic pl-1 py-1">
+                              Ingen information hittades på denna punkt.
+                            </div>
+                          ) : (
+                            parsedFeatures.map((fea, fIdx) => (
+                              <div key={fIdx} className="bg-slate-50/50 rounded-xl p-2.5 border border-slate-150/50 space-y-1.5">
+                                {fea.title && (
+                                  <div className="text-[10px] font-black text-slate-800 border-b border-slate-100 pb-1">
+                                    {fea.title}
+                                  </div>
+                                )}
+                                <div className="grid grid-cols-1 gap-1">
+                                  {Object.entries(fea.properties).map(([k, v]) => (
+                                    <div key={k} className="flex flex-col text-[10px]">
+                                      <span className="text-slate-400 font-bold text-[8.5px] uppercase tracking-wide leading-none mb-0.5">
+                                        {translatePropertyKey(k)}:
+                                      </span>
+                                      <span className="text-slate-700 font-medium leading-normal break-words">
+                                        {String(v)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      );
+                    });
+                  })()
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center text-slate-405">
+                    <MousePointerClick className="w-5 h-5 mb-2 text-indigo-400 animate-bounce" />
+                    <p className="text-[10px] font-black uppercase text-slate-700 tracking-wider">Klicka på kartan!</p>
+                    <p className="text-[9px] max-w-[180px] mt-1 leading-normal text-slate-450">
+                      Du har klick-info aktiverat för dina lager, så klicka på kartan för att hämta mätdata på platsen.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
          {/* Map Controls */}
         <div 
