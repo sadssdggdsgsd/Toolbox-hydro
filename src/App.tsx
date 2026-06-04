@@ -805,14 +805,16 @@ export default function App() {
 
   // Active and enabled sources
   const activeAndEnabledSources = useMemo(() => {
-    return Object.values(sources).filter(s => s.enabled);
+    return Object.entries(sources)
+      .map(([id, s]) => ({ id, ...s }))
+      .filter(s => s.enabled);
   }, [sources]);
 
   // Auto-select first active source if current selection is invalid
   useEffect(() => {
     if (activeAndEnabledSources.length > 0) {
       if (!selectedProfileSourceId || !sources[selectedProfileSourceId]?.enabled) {
-        setSelectedProfileSourceId(activeAndEnabledSources[0].name);
+        setSelectedProfileSourceId(activeAndEnabledSources[0].id);
       }
     } else {
       setSelectedProfileSourceId(null);
@@ -2393,7 +2395,7 @@ export default function App() {
                       style={{ fontSize: `${11 * uiScale}px`, padding: `${4 * uiScale}px ${8 * uiScale}px` }}
                     >
                       {activeAndEnabledSources.map(s => (
-                        <option key={s.name} value={s.name}>
+                        <option key={s.id} value={s.id}>
                           {s.name}
                         </option>
                       ))}
