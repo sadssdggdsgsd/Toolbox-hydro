@@ -16,6 +16,7 @@ export interface Source {
   splitNodeIndex?: number;
   splitCost?: number;
   splitWeight?: number;
+  connectionPoint?: [number, number];
 }
 
 export type ActiveAction = 'move' | 'node' | null;

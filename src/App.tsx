@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   MapContainer, 
   TileLayer, 
@@ -25,7 +25,7 @@ import {
   Info,
   MapPin,
   Map,
-  LandPlot,
+  Hexagon,
   Minus,
   Layers,
   Undo2,
@@ -42,7 +42,10 @@ import {
   ZoomIn,
   ZoomOut,
   Mountain,
-  MousePointerClick
+  MousePointerClick,
+  Check,
+  Edit3,
+  Minimize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Source, ActiveAction, AnalysisResult } from './types';
@@ -344,23 +347,29 @@ function MapClickHandler({
   activeAction, 
   placingTestLocation,
   isRelocatingSweetSpot,
+  placingAreaPolygon,
   onAction,
   onPlaceTest,
   onRelocate,
+  onAddDraftPolygonPoint,
   onMapClick
 }: { 
   activeSource: string | null; 
   activeAction: ActiveAction;
   placingTestLocation: boolean;
   isRelocatingSweetSpot: boolean;
+  placingAreaPolygon?: boolean;
   onAction: (latlng: [number, number]) => void;
   onPlaceTest: (latlng: [number, number]) => void;
   onRelocate: (latlng: [number, number]) => void;
+  onAddDraftPolygonPoint?: (latlng: [number, number]) => void;
   onMapClick?: (latlng: [number, number], map: L.Map, containerPoint: L.Point) => void;
 }) {
   const map = useMapEvents({
     click(e) {
-      if (placingTestLocation) {
+      if (placingAreaPolygon && onAddDraftPolygonPoint) {
+        onAddDraftPolygonPoint([e.latlng.lat, e.latlng.lng]);
+      } else if (placingTestLocation) {
         onPlaceTest([e.latlng.lat, e.latlng.lng]);
       } else if (isRelocatingSweetSpot) {
         onRelocate([e.latlng.lat, e.latlng.lng]);
@@ -475,10 +484,80 @@ function JordarterAPILayer({ enabled, opacity, url }: { enabled: boolean; opacit
   );
 }
 
+function isPointInPolygon(p: [number, number], polygon: [number, number][]): boolean {
+  if (polygon.length < 3) return false;
+  const lat = p[0];
+  const lng = p[1];
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][1], yi = polygon[i][0];
+    const xj = polygon[j][1], yj = polygon[j][0];
+    
+    const intersect = ((yi > lat) !== (yj > lat))
+        && (lng < (xj - xi) * (lat - yi) / (yj - yi || 1) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function getClosestPointOnSegment(p: [number, number], a: [number, number], b: [number, number]): [number, number] {
+  const x = p[1]; // lon
+  const y = p[0]; // lat
+  const x1 = a[1];
+  const y1 = a[0];
+  const x2 = b[1];
+  const y2 = b[0];
+  
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  
+  if (dx === 0 && dy === 0) {
+    return a;
+  }
+  
+  const latRad = ((y1 + y2) / 2) * Math.PI / 180;
+  const scaleX = Math.cos(latRad);
+  
+  const pdx = (x - x1) * scaleX;
+  const pdy = y - y1;
+  const sdx = dx * scaleX;
+  const sdy = dy;
+  
+  const t = Math.max(0, Math.min(1, (pdx * sdx + pdy * sdy) / (sdx * sdx + sdy * sdy)));
+  return [y1 + t * dy, x1 + t * dx];
+}
+
+function getClosestPointOnPolygon(p: [number, number], polygon: [number, number][]): [number, number] {
+  if (polygon.length === 0) return p;
+  let minDistance = Infinity;
+  let closestPoint: [number, number] = p;
+  
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % polygon.length];
+    const cp = getClosestPointOnSegment(p, a, b);
+    const dist = getDistance(p, cp);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestPoint = cp;
+    }
+  }
+  return closestPoint;
+}
+
+function constrainPointToPolygon(point: [number, number], polygon: [number, number][]): [number, number] {
+  if (isPointInPolygon(point, polygon)) {
+    return point;
+  }
+  return getClosestPointOnPolygon(point, polygon);
+}
+
 interface ScenarioData {
   sources: Record<string, Source>;
   testLocation: [number, number] | null;
   showTestLocation: boolean;
+  testPolygon?: [number, number][];
+  isAreaMode?: boolean;
 }
 
 export default function App() {
@@ -495,6 +574,47 @@ export default function App() {
   const sources = currentScenario.sources as Record<string, Source>;
   const testLocation = currentScenario.testLocation;
   const showTestLocation = currentScenario.showTestLocation;
+  const testPolygon = currentScenario.testPolygon;
+  const isAreaMode = currentScenario.isAreaMode;
+
+  const [placingAreaPolygon, setPlacingAreaPolygon] = useState(false);
+  const [draftPolygonPoints, setDraftPolygonPoints] = useState<[number, number][]>([]);
+  const [isEditingAreaMode, setIsEditingAreaMode] = useState(false);
+
+  const setTestPolygon = (poly: [number, number][] | undefined) => {
+    setScenarios(prev => ({
+      ...prev,
+      [activeScenario]: {
+        ...prev[activeScenario],
+        testPolygon: poly
+      }
+    }));
+  };
+
+  const snapSourcePointsToPolygon = (poly: [number, number][]) => {
+    setSources(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(id => {
+        const s = next[id];
+        if (s.enabled) {
+          const currentCp = s.connectionPoint ?? getSourceTarget(id, s);
+          const snappedPt = getClosestPointOnPolygon(currentCp, poly);
+          next[id] = { ...s, connectionPoint: snappedPt };
+        }
+      });
+      return next;
+    });
+  };
+
+  const setIsAreaMode = (mode: boolean) => {
+    setScenarios(prev => ({
+      ...prev,
+      [activeScenario]: {
+        ...prev[activeScenario],
+        isAreaMode: mode
+      }
+    }));
+  };
 
   const setSources = (updater: Record<string, Source> | ((prev: Record<string, Source>) => Record<string, Source>)) => {
     setScenarios(prev => ({
@@ -557,6 +677,18 @@ export default function App() {
   };
 
   const analysis = useMemo(() => runAnalysis(sources), [sources]);
+
+  const getSourceTarget = useCallback((sourceName: string, source: Source): [number, number] => {
+    if (isAreaMode && testPolygon && testPolygon.length >= 3) {
+      if (source.connectionPoint) {
+        return source.connectionPoint;
+      }
+      // If none set, default to snapped point on polygon
+      const lastPoint = source.nodes.length > 0 ? source.nodes[source.nodes.length - 1] : source.loc;
+      return getClosestPointOnPolygon(lastPoint, testPolygon);
+    }
+    return (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
+  }, [isAreaMode, testPolygon, testLocation, analysis.bestLoc]);
 
   const addScenario = () => {
     const existingIds = Object.keys(scenarios).map(Number);
@@ -1027,26 +1159,44 @@ export default function App() {
 
   // Remove duplicate analysis declaration
 
+  const resolvedSources = useMemo(() => {
+    if (!isAreaMode || !testPolygon || testPolygon.length < 3) return sources;
+    const cloned: Record<string, Source> = {};
+    (Object.entries(sources) as [string, Source][]).forEach(([id, source]) => {
+      if (source.connectionPoint) {
+        cloned[id] = source;
+      } else {
+        const lastPoint = source.nodes.length > 0 ? source.nodes[source.nodes.length - 1] : source.loc;
+        cloned[id] = {
+          ...source,
+          connectionPoint: getClosestPointOnPolygon(lastPoint, testPolygon)
+        };
+      }
+    });
+    return cloned;
+  }, [sources, isAreaMode, testPolygon]);
+
   const sourceDistances = useMemo(() => {
     const dists: Record<string, number> = {};
     const target = testLocation || analysis.bestLoc;
-    (Object.entries(sources) as [string, Source][]).forEach(([id, data]) => {
+    (Object.entries(resolvedSources) as [string, Source][]).forEach(([id, data]) => {
       let dist = 0;
       let curr = data.loc;
       for (const node of data.nodes) {
         dist += getDistance(curr, node);
         curr = node;
       }
-      dist += getDistance(curr, target);
+      const finalTarget = (isAreaMode && data.connectionPoint) ? data.connectionPoint : target;
+      dist += getDistance(curr, finalTarget);
       dists[id] = dist;
     });
     return dists;
-  }, [sources, analysis.bestLoc, testLocation]);
+  }, [resolvedSources, analysis.bestLoc, testLocation, isAreaMode]);
 
   const testLocationResult = useMemo(() => {
     if (!testLocation) return null;
-    return getCostAt(sources, testLocation);
-  }, [sources, testLocation]);
+    return getCostAt(resolvedSources, testLocation, isAreaMode);
+  }, [resolvedSources, testLocation, isAreaMode]);
 
   const allScenariosAtTestLocation = useMemo(() => {
     if (!testLocation) return null;
@@ -1058,8 +1208,27 @@ export default function App() {
       const scenLoc = (scen.testLocation && scen.showTestLocation) 
         ? scen.testLocation 
         : runAnalysis(scen.sources).bestLoc;
+      
+      const scenSources = (() => {
+        if (!scen.isAreaMode || !scen.testPolygon || scen.testPolygon.length < 3) {
+          return scen.sources as Record<string, Source>;
+        }
+        const resolved: Record<string, Source> = {};
+        (Object.entries(scen.sources) as [string, Source][]).forEach(([sid, s]) => {
+          if (s.connectionPoint) {
+            resolved[sid] = s;
+          } else {
+            const lastPoint = s.nodes.length > 0 ? s.nodes[s.nodes.length - 1] : s.loc;
+            resolved[sid] = {
+              ...s,
+              connectionPoint: getClosestPointOnPolygon(lastPoint, scen.testPolygon as [number, number][])
+            };
+          }
+        });
+        return resolved;
+      })();
         
-      results[num] = getCostAt(scen.sources, scenLoc);
+      results[num] = getCostAt(scenSources, scenLoc, scen.isAreaMode);
     });
     return results;
   }, [scenarios, testLocation]);
@@ -1481,27 +1650,60 @@ export default function App() {
                 <Target className="w-5 h-5" />
               </button>
 
-              {/* Manual/Test Location Button */}
-              <button 
-                onClick={() => {
-                  if (placingTestLocation || showTestLocation) {
-                    setPlacingTestLocation(false);
-                    setShowTestLocation(false);
-                  } else {
-                    setPlacingTestLocation(true);
-                    setShowTestLocation(true);
-                  }
-                  setIsRelocatingSweetSpot(false);
-                }}
-                className={`p-2 rounded-xl transition-all group relative ${
-                  (showTestLocation || placingTestLocation)
-                    ? 'bg-[#4778A5] text-white shadow-lg ring-2 ring-blue-100' 
-                    : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
-                }`}
-                title="Aktivera Vald Plats"
-              >
-                <MapPin className={`w-5 h-5 ${placingTestLocation ? 'animate-pulse' : ''}`} />
-              </button>
+              {/* Stack of Point and Area selection buttons */}
+              <div className="flex flex-col gap-0.5 justify-center self-center" style={{ height: '38px' }}>
+                {/* Välj punkt */}
+                <button 
+                  onClick={() => {
+                    setIsAreaMode(false);
+                    setPlacingAreaPolygon(false);
+                    setIsEditingAreaMode(false);
+                    if (placingTestLocation || (showTestLocation && !isAreaMode)) {
+                      setPlacingTestLocation(false);
+                      setShowTestLocation(false);
+                    } else {
+                      setPlacingTestLocation(true);
+                      setShowTestLocation(true);
+                    }
+                    setIsRelocatingSweetSpot(false);
+                  }}
+                  className={`flex items-center justify-center transition-all group relative border border-slate-200/50 ${
+                    (!isAreaMode && (showTestLocation || placingTestLocation))
+                      ? 'bg-[#4778A5] text-white shadow-sm rounded-md' 
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm rounded-md'
+                  }`}
+                  title="Välj punkt"
+                  style={{ width: '28px', height: '18px', padding: '1px' }}
+                >
+                  <MapPin className={`w-3 h-3 ${placingTestLocation ? 'animate-pulse' : ''}`} />
+                </button>
+
+                {/* Välj område */}
+                <button 
+                  onClick={() => {
+                    setIsEditingAreaMode(false);
+                    if (placingAreaPolygon || isAreaMode) {
+                      setPlacingAreaPolygon(false);
+                      setDraftPolygonPoints([]);
+                      setIsAreaMode(false);
+                    } else {
+                      setPlacingAreaPolygon(true);
+                      setDraftPolygonPoints([]);
+                      setPlacingTestLocation(false);
+                      setIsRelocatingSweetSpot(false);
+                    }
+                  }}
+                  className={`flex items-center justify-center transition-all group relative border border-slate-200/50 ${
+                    (isAreaMode || placingAreaPolygon)
+                      ? 'bg-[#4778A5] text-white shadow-sm rounded-md' 
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm rounded-md'
+                  }`}
+                  title="Välj område"
+                  style={{ width: '28px', height: '18px', padding: '1px' }}
+                >
+                  <Hexagon className={`w-3 h-3 ${placingAreaPolygon ? 'animate-pulse' : ''}`} />
+                </button>
+              </div>
 
               {/* Relocate Everything Button */}
               <button 
@@ -1561,6 +1763,8 @@ export default function App() {
               </button>
             )}
           </div>
+
+          {/* Sidebar content */}
 
           <div className="space-y-6">
             {/* Symmetric Source Rows */}
@@ -1940,7 +2144,7 @@ export default function App() {
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <LandPlot className="w-3.5 h-3.5 text-slate-400" />
+                  <Layers className="w-3.5 h-3.5 text-slate-400" />
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bakgrund</span>
                 </div>
                 
@@ -2119,6 +2323,7 @@ export default function App() {
             activeAction={activeAction} 
             placingTestLocation={placingTestLocation}
             isRelocatingSweetSpot={isRelocatingSweetSpot}
+            placingAreaPolygon={placingAreaPolygon}
             onAction={handleMapAction} 
             onPlaceTest={(latlng) => {
               setTestLocation(latlng);
@@ -2126,6 +2331,9 @@ export default function App() {
               setPlacingTestLocation(false);
             }}
             onRelocate={handleRelocate}
+            onAddDraftPolygonPoint={(latlng) => {
+              setDraftPolygonPoints(prev => [...prev, latlng]);
+            }}
             onMapClick={handleMapClick}
           />
 
@@ -2207,9 +2415,21 @@ export default function App() {
               <React.Fragment key={`scenario-map-${num}`}>
                 {(Object.entries(scenarioSources) as [string, Source][]).map(([id, data]) => {
                   if (!data.enabled) return null;
-                  const target = (scenarioData.testLocation && scenarioData.showTestLocation) 
-                    ? scenarioData.testLocation 
-                    : scenarioAnalysis.bestLoc;
+                  
+                  let target = scenarioAnalysis.bestLoc;
+                  if (scenarioData.testLocation && scenarioData.showTestLocation) {
+                    if (scenarioData.isAreaMode && scenarioData.testPolygon && scenarioData.testPolygon.length >= 3) {
+                      if (data.connectionPoint) {
+                        target = data.connectionPoint;
+                      } else {
+                        const lastPoint = data.nodes.length > 0 ? data.nodes[data.nodes.length - 1] : data.loc;
+                        target = getClosestPointOnPolygon(lastPoint, scenarioData.testPolygon);
+                      }
+                    } else {
+                      target = scenarioData.testLocation;
+                    }
+                  }
+                  
                   const path = [data.loc, ...data.nodes, target];
 
                   return (
@@ -2256,7 +2476,7 @@ export default function App() {
           })}
 
           {(Object.entries(sources) as [string, Source][]).map(([id, data]) => {
-            const target = (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
+            const target = getSourceTarget(id, data);
             
             // Calculate segments/path
             const renderSegments = () => {
@@ -2371,8 +2591,143 @@ export default function App() {
             );
           })}
 
-          {/* Test Location Marker */}
-          {testLocation && showTestLocation && (
+          {/* Saved Area Polygon (Area mode) */}
+          {isAreaMode && testPolygon && testPolygon.length >= 3 && (
+            <>
+              <Polygon 
+                positions={testPolygon}
+                pathOptions={{
+                  color: '#4f46e5',
+                  fillColor: '#818cf8',
+                  fillOpacity: isEditingAreaMode ? 0.35 : 0.15,
+                  weight: 3,
+                  dashArray: isEditingAreaMode ? '5, 5' : 'none'
+                }}
+              />
+
+              {/* If in edit mode, render vertex markers */}
+              {isEditingAreaMode && (
+                <>
+                  {/* Main vertices */}
+                  {testPolygon.map((latlng, idx) => (
+                    <Marker
+                      key={`vertex-${idx}`}
+                      position={latlng}
+                      draggable={true}
+                      eventHandlers={{
+                        dragend: (e: any) => {
+                          const newPoly = [...testPolygon];
+                          const pos = e.target.getLatLng();
+                          newPoly[idx] = [pos.lat, pos.lng];
+                          setTestPolygon(newPoly);
+                          snapSourcePointsToPolygon(newPoly);
+                        }
+                      }}
+                      icon={L.divIcon({
+                        className: 'polygon-edit-vertex-icon',
+                        html: `<div class="w-4.5 h-4.5 rounded-full bg-indigo-600 border-2 border-white shadow-md cursor-move transition-transform hover:scale-125 flex items-center justify-center text-white text-[8px] font-bold">${idx + 1}</div>`,
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                      })}
+                    >
+                      <Popup>
+                        <div className="p-1 text-center min-w-[100px]">
+                          <p className="text-[10px] font-bold text-slate-700 mb-1">Hörn #{idx + 1}</p>
+                          <button
+                            onClick={() => {
+                              if (testPolygon.length <= 3) {
+                                return;
+                              }
+                              const newPoly = testPolygon.filter((_, i) => i !== idx);
+                              setTestPolygon(newPoly);
+                              snapSourcePointsToPolygon(newPoly);
+                            }}
+                            className="px-2 py-1 bg-red-500 hover:bg-red-600 font-bold text-white text-[9px] rounded transition"
+                          >
+                            Ta bort hörn
+                          </button>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+
+                  {/* Edge midpoints for adding vertices */}
+                  {testPolygon.map((latlng, idx) => {
+                    const nextLatlng = testPolygon[(idx + 1) % testPolygon.length];
+                    const midpoint: [number, number] = [
+                      (latlng[0] + nextLatlng[0]) / 2,
+                      (latlng[1] + nextLatlng[1]) / 2
+                    ];
+
+                    return (
+                      <Marker
+                        key={`midpoint-${idx}`}
+                        position={midpoint}
+                        draggable={false}
+                        eventHandlers={{
+                          click: () => {
+                            const newPoly = [...testPolygon];
+                            // Insert the midpoint between idx and idx + 1
+                            newPoly.splice(idx + 1, 0, midpoint);
+                            setTestPolygon(newPoly);
+                            snapSourcePointsToPolygon(newPoly);
+                          }
+                        }}
+                        icon={L.divIcon({
+                          className: 'polygon-edit-midpoint-icon',
+                          html: `<div class="w-4 h-4 rounded-full bg-emerald-500 border-2 border-white hover:bg-emerald-600 shadow-md cursor-pointer flex items-center justify-center text-white text-[11px] font-black font-sans leading-none">+</div>`,
+                          iconSize: [16, 16],
+                          iconAnchor: [8, 8]
+                        })}
+                      >
+                        <Tooltip direction="top" offset={[0, -5]} className="!bg-slate-900/90 !border-none !text-white !p-0.5 !px-1.5 !rounded !text-[8.5px] !font-medium">
+                          Lägg till hörn här
+                        </Tooltip>
+                      </Marker>
+                    );
+                  })}
+                </>
+              )}
+            </>
+          )}
+
+          {/* Draft Polygon Points & Paths (Drawing mode) */}
+          {placingAreaPolygon && draftPolygonPoints.length > 0 && (
+            <>
+              {draftPolygonPoints.length >= 2 ? (
+                <Polygon 
+                  positions={draftPolygonPoints}
+                  pathOptions={{
+                    color: '#e11d48',
+                    fillColor: '#f43f5e',
+                    fillOpacity: 0.1,
+                    weight: 2,
+                    dashArray: '5, 5'
+                  }}
+                />
+              ) : null}
+              {draftPolygonPoints.map((point, index) => (
+                <CircleMarker
+                  key={`draft-pt-${index}`}
+                  center={point}
+                  radius={7}
+                  pathOptions={{
+                    fillColor: '#e11d48',
+                    color: '#ffffff',
+                    weight: 1.5,
+                    fillOpacity: 1
+                  }}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -6]}>
+                    <span className="text-[10px] font-black text-rose-600 px-0.5">{index + 1}</span>
+                  </Tooltip>
+                </CircleMarker>
+              ))}
+            </>
+          )}
+
+          {/* Test Location Marker (Only in single point mode) */}
+          {testLocation && showTestLocation && !isAreaMode && (
             <>
               <Marker 
                 position={testLocation}
@@ -2381,7 +2736,11 @@ export default function App() {
                   dragend: (e) => {
                     const marker = e.target;
                     const position = marker.getLatLng();
-                    setTestLocation([position.lat, position.lng]);
+                    let newLoc: [number, number] = [position.lat, position.lng];
+                    if (isAreaMode && testPolygon && testPolygon.length >= 3) {
+                      newLoc = constrainPointToPolygon(newLoc, testPolygon);
+                    }
+                    setTestLocation(newLoc);
                   },
                 }}
                 icon={L.divIcon({
@@ -2400,6 +2759,51 @@ export default function App() {
               >
               </Marker>
             </>
+          )}
+
+          {/* Individual Source Connection Markers (Only in Area Mode) */}
+          {isAreaMode && testPolygon && testPolygon.length >= 3 && showTestLocation && (
+            (Object.entries(sources) as [string, Source][]).map(([id, data]) => {
+              if (!data.enabled) return null;
+              const sourceTarget = getSourceTarget(id, data);
+              
+              return (
+                <Marker
+                  key={`conn-marker-${id}`}
+                  position={sourceTarget}
+                  draggable={true}
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const marker = e.target;
+                      const position = marker.getLatLng();
+                      let newLoc: [number, number] = [position.lat, position.lng];
+                      newLoc = constrainPointToPolygon(newLoc, testPolygon);
+                      updateSource(id, { connectionPoint: newLoc });
+                    }
+                  }}
+                  icon={L.divIcon({
+                    className: 'source-connection-pin',
+                    html: `
+                      <div class="relative flex items-center justify-center pt-1" style="width: 24px; height: 24px;">
+                        <!-- Ripple effect -->
+                        <div class="absolute w-8 h-8 rounded-full animate-ping opacity-20" style="background-color: ${data.color}; top: -4px;"></div>
+                        <!-- SVG Pin -->
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${data.color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                          <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z" fill="white"/>
+                          <circle cx="12" cy="10" r="3.5" fill="${data.color}"/>
+                        </svg>
+                      </div>
+                    `,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 24]
+                  })}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -22]} className="!bg-slate-900/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-md">
+                    <span>Anslutning: {data.name}</span>
+                  </Tooltip>
+                </Marker>
+              );
+            })
           )}
 
           {/* Sweet Spot Marker */}
@@ -2475,6 +2879,151 @@ export default function App() {
           )}
         </MapContainer>
 
+        {/* Floating Area Drawing & Status Panel */}
+        <AnimatePresence>
+          {(placingAreaPolygon || (isAreaMode && testPolygon && testPolygon.length >= 3)) && (
+            <motion.div
+              initial={{ opacity: 0, x: -25, y: -15, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -25, y: -15, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 150 }}
+              className="absolute top-6 left-6 z-[1010] bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col pointer-events-auto p-4"
+              style={{
+                width: `${320 * uiScale}px`,
+                transform: `scale(${uiScale})`,
+                transformOrigin: 'top left'
+              }}
+            >
+              {placingAreaPolygon ? (
+                // DRAWING MODE INSIDE FLOATING BANNER
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                    <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center border border-rose-100">
+                      <Hexagon className="w-4.5 h-4.5 text-rose-600 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-[10px] font-black text-rose-700 uppercase tracking-wider leading-none">Ritar område...</h3>
+                      <p className="text-[8.5px] font-mono text-slate-400 mt-1">{draftPolygonPoints.length} hörn placerade</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-[10.5px] text-slate-600 leading-normal font-medium">
+                    Klicka på kartan för att rita ett område.
+                  </p>
+
+                  <div className="flex items-center gap-2 pt-1.5">
+                    <button
+                      onClick={() => {
+                        if (draftPolygonPoints.length >= 3) {
+                          setTestPolygon(draftPolygonPoints);
+                          setIsAreaMode(true);
+                          setPlacingAreaPolygon(false);
+                          
+                          // Snap each source automatically
+                          setSources(prev => {
+                            const next = { ...prev };
+                            Object.keys(next).forEach(id => {
+                              const s = next[id];
+                              const lastPoint = s.nodes.length > 0 ? s.nodes[s.nodes.length - 1] : s.loc;
+                              const cp = getClosestPointOnPolygon(lastPoint, draftPolygonPoints);
+                              next[id] = { ...s, connectionPoint: cp };
+                            });
+                            return next;
+                          });
+
+                          const closestPt = getClosestPointOnPolygon(analysis.bestLoc, draftPolygonPoints);
+                          setTestLocation(closestPt);
+                          setShowTestLocation(true);
+                          setDraftPolygonPoints([]);
+                        }
+                      }}
+                      disabled={draftPolygonPoints.length < 3}
+                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-250 disabled:text-slate-400 text-white font-black text-[10px] rounded-xl transition flex items-center gap-1.5 shadow-sm disabled:shadow-none"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Spara område</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPlacingAreaPolygon(false);
+                        setDraftPolygonPoints([]);
+                      }}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-xl transition border border-slate-200/50"
+                    >
+                      Avbryt
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // ACTIVE AREA MODE INSIDE FLOATING BANNER
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                        <Hexagon className="w-4.5 h-4.5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-wider leading-none">Aktivt område</h3>
+                        <p className="text-[8.5px] font-mono text-slate-400 mt-1">{testPolygon.length} hörn etablerade</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setIsAreaMode(false);
+                        setTestPolygon(undefined);
+                        setIsEditingAreaMode(false);
+                        // Clear individual connection points when disabling area mode
+                        setSources(prev => {
+                          const next = { ...prev };
+                          Object.keys(next).forEach(id => {
+                            delete next[id].connectionPoint;
+                          });
+                          return next;
+                        });
+                      }}
+                      className="w-7 h-7 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-250/50 flex items-center justify-center transition-colors shadow-none"
+                      title="Ta bort område"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {isEditingAreaMode ? (
+                    <p className="text-[10.5px] text-slate-600 leading-normal font-medium bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/40">
+                      Flytta hörnmarkörerna för att ändra form. Lägg till nya hörn eller ta bort befintliga.
+                    </p>
+                  ) : (
+                    <p className="text-[10.5px] text-slate-600 leading-normal font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      Flytta anslutningspunkterna för källorna.
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 select-none">
+                    {isEditingAreaMode ? (
+                      <button
+                        onClick={() => setIsEditingAreaMode(false)}
+                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Klar med editering</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setIsEditingAreaMode(true)}
+                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Editera område</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div 
           className="absolute top-6 right-6 z-[1000] w-80 flex flex-col gap-4 pointer-events-none transition-all duration-300"
           style={{ 
@@ -2533,19 +3082,12 @@ export default function App() {
                   const activeCount = allScenarioNums.length;
                   
                   const getScenarioData = (num: number) => {
-                    const scen = scenarios[num];
-                    if (!scen || !scen.sources[id]) return null;
-                    const scenLoc = (scen.testLocation && scen.showTestLocation) 
-                      ? scen.testLocation 
-                      : runAnalysis(scen.sources).bestLoc;
-                    
-                    // Use the robust analysis calculation which handles splits
-                    const result = getCostAt(scen.sources, scenLoc as [number, number]);
+                    const result = allScenariosAtTestLocation?.[num];
+                    if (!result || !scenarios[num]?.sources[id]) return null;
+
                     const sCost = result.breakdown[id] || 0;
-                    
-                    // Calculate total path distance from segments
-                    const sDist = result.detailedBreakdown?.[id]?.segments.reduce((acc, s) => acc + s.dist, 0) || 0;
-                    
+                    const sDist = result.detailedBreakdown?.[id]?.segments?.reduce((acc, s) => acc + s.dist, 0) || 0;
+
                     return { dist: sDist, cost: sCost };
                   };
 

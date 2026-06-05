@@ -15,13 +15,15 @@ export function getDistance(p1: [number, number], p2: [number, number]): number 
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
-export function getCostAt(sources: Record<string, Source>, target: [number, number]): { total: number; breakdown: CostBreakdown; detailedBreakdown?: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> } {
+export function getCostAt(sources: Record<string, Source>, target: [number, number], useIndividualPoints?: boolean): { total: number; breakdown: CostBreakdown; detailedBreakdown?: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> } {
   let totalCost = 0;
   const breakdown: CostBreakdown = {};
   const detailedBreakdown: Record<string, { total: number; segments: { dist: number; cost: number; weight: number }[] }> = {};
 
   for (const [id, source] of Object.entries(sources)) {
     if (!source.enabled) continue;
+    const sourceTarget = (useIndividualPoints && source.connectionPoint) ? source.connectionPoint : target;
+
     if (source.isSplit && source.splitNodeIndex !== undefined && source.nodes.length > source.splitNodeIndex) {
       // Segment B: Source -> ... -> SplitPoint (Dark Blue)
       let distB = 0;
@@ -39,7 +41,7 @@ export function getCostAt(sources: Record<string, Source>, target: [number, numb
         distA += getDistance(currA, source.nodes[i]);
         currA = source.nodes[i];
       }
-      distA += getDistance(currA, target);
+      distA += getDistance(currA, sourceTarget);
       const costA = distA * source.cost * source.weight;
 
       const totalSourceCost = costA + costB;
@@ -59,7 +61,7 @@ export function getCostAt(sources: Record<string, Source>, target: [number, numb
         fixedDist += getDistance(currP, node);
         currP = node;
       }
-      const dist = fixedDist + getDistance(currP, target);
+      const dist = fixedDist + getDistance(currP, sourceTarget);
       const sourceCost = dist * source.cost * source.weight;
       totalCost += sourceCost;
       breakdown[id] = sourceCost;
