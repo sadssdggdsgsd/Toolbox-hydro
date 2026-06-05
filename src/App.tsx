@@ -811,6 +811,14 @@ export default function App() {
   const [mapClickQueryResults, setMapClickQueryResults] = useState<any[] | null>(null);
   const [showQueryResultsPanel, setShowQueryResultsPanel] = useState(false);
 
+  // Close map click query results panel if no layers have "Info på kartan" active
+  useEffect(() => {
+    const hasActiveQueryLayer = wmsLayers.some(layer => layer.enabled && layer.clickQueryEnabled);
+    if (!hasActiveQueryLayer && showQueryResultsPanel) {
+      setShowQueryResultsPanel(false);
+    }
+  }, [wmsLayers, showQueryResultsPanel]);
+
   // Target location (Sweetspot or manual test location)
   const elevationTarget = useMemo(() => {
     return (testLocation && showTestLocation) ? testLocation : analysis.bestLoc;
