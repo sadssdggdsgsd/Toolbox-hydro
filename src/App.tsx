@@ -591,21 +591,6 @@ export default function App() {
     }));
   };
 
-  const snapSourcePointsToPolygon = (poly: [number, number][]) => {
-    setSources(prev => {
-      const next = { ...prev };
-      Object.keys(next).forEach(id => {
-        const s = next[id];
-        if (s.enabled) {
-          const currentCp = s.connectionPoint ?? getSourceTarget(id, s);
-          const snappedPt = getClosestPointOnPolygon(currentCp, poly);
-          next[id] = { ...s, connectionPoint: snappedPt };
-        }
-      });
-      return next;
-    });
-  };
-
   const setIsAreaMode = (mode: boolean) => {
     setScenarios(prev => ({
       ...prev,
@@ -1629,81 +1614,75 @@ export default function App() {
         }}
       >
         <div className="flex flex-col w-[320px] shrink-0" style={{ height: `${100 / uiScale}%`, transform: `scale(${uiScale})`, transformOrigin: 'top left' }}>
-          <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <h1 className="text-[17px] tracking-tight text-slate-900 flex items-center shrink-0 select-none">
-              <span className="font-black tracking-tight text-slate-950">SWEETSPOT</span>
-              <span className="font-light text-slate-500 tracking-wide">FINDER</span>
+          <div className="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between shrink-0 gap-1">
+            <h1 className="text-[18px] tracking-tighter text-slate-900 select-none shrink-0 min-w-0 leading-none">
+              <span className="font-sans font-black text-slate-950">SWEETSPOT</span>
+              <span className="font-sans font-light text-slate-500 ml-0.5">FINDER</span>
             </h1>
-            <div className="flex-1 flex justify-center">
-              <div className="flex gap-1 p-0.5">
+            
+            <div className="flex gap-0.5 items-center shrink-0">
               {/* Toggle Sweet Spot Button */}
               <button 
                 onClick={() => setShowSweetSpot(!showSweetSpot)}
-                className={`p-2 rounded-xl transition-all group relative ${
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all group relative ${
                   showSweetSpot 
-                    ? 'bg-[#393F4C] text-white shadow-lg ring-2 ring-slate-200' 
-                    : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm'
+                    ? 'bg-slate-800 text-white shadow-sm font-bold' 
+                    : 'text-slate-400 hover:text-slate-800 hover:bg-slate-50'
                 }`}
-                title="Aktivera Sweet Spot"
+                title="Sweet Spot"
               >
-                <Target className="w-5 h-5" />
+                <Target className="w-4 h-4" />
               </button>
 
-              {/* Stack of Point and Area selection buttons */}
-              <div className="flex flex-col gap-0.5 justify-center self-center" style={{ height: '38px' }}>
-                {/* Välj punkt */}
-                <button 
-                  onClick={() => {
-                    setIsAreaMode(false);
-                    setPlacingAreaPolygon(false);
-                    setIsEditingAreaMode(false);
-                    if (placingTestLocation || (showTestLocation && !isAreaMode)) {
-                      setPlacingTestLocation(false);
-                      setShowTestLocation(false);
-                    } else {
-                      setPlacingTestLocation(true);
-                      setShowTestLocation(true);
-                    }
-                    setIsRelocatingSweetSpot(false);
-                  }}
-                  className={`flex items-center justify-center transition-all group relative border border-slate-200/50 ${
-                    (!isAreaMode && (showTestLocation || placingTestLocation))
-                      ? 'bg-[#4778A5] text-white shadow-sm rounded-md' 
-                      : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm rounded-md'
-                  }`}
-                  title="Välj punkt"
-                  style={{ width: '28px', height: '18px', padding: '1px' }}
-                >
-                  <MapPin className={`w-3 h-3 ${placingTestLocation ? 'animate-pulse' : ''}`} />
-                </button>
+              {/* Välj punkt */}
+              <button 
+                onClick={() => {
+                  setIsAreaMode(false);
+                  setPlacingAreaPolygon(false);
+                  setIsEditingAreaMode(false);
+                  if (placingTestLocation || (showTestLocation && !isAreaMode)) {
+                    setPlacingTestLocation(false);
+                    setShowTestLocation(false);
+                  } else {
+                    setPlacingTestLocation(true);
+                    setShowTestLocation(true);
+                  }
+                  setIsRelocatingSweetSpot(false);
+                }}
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all group relative ${
+                  (!isAreaMode && (showTestLocation || placingTestLocation))
+                    ? 'bg-[#4778A5] text-white shadow-sm font-bold' 
+                    : 'text-slate-400 hover:text-slate-800 hover:bg-slate-50'
+                }`}
+                title="Välj punkt"
+              >
+                <MapPin className={`w-4 h-4 ${placingTestLocation ? 'animate-pulse' : ''}`} />
+              </button>
 
-                {/* Välj område */}
-                <button 
-                  onClick={() => {
-                    setIsEditingAreaMode(false);
-                    if (placingAreaPolygon || isAreaMode) {
-                      setPlacingAreaPolygon(false);
-                      setDraftPolygonPoints([]);
-                      setIsAreaMode(false);
-                    } else {
-                      setPlacingAreaPolygon(true);
-                      setDraftPolygonPoints([]);
-                      setPlacingTestLocation(false);
-                      setIsRelocatingSweetSpot(false);
-                    }
-                  }}
-                  className={`flex items-center justify-center transition-all group relative border border-slate-200/50 ${
-                    (isAreaMode || placingAreaPolygon)
-                      ? 'bg-[#4778A5] text-white shadow-sm rounded-md' 
-                      : 'text-slate-400 hover:text-slate-600 hover:bg-white hover:shadow-sm rounded-md'
-                  }`}
-                  title="Välj område"
-                  style={{ width: '28px', height: '18px', padding: '1px' }}
-                >
-                  <Hexagon className={`w-3 h-3 ${placingAreaPolygon ? 'animate-pulse' : ''}`} />
-                </button>
-              </div>
+              {/* Välj område */}
+              <button 
+                onClick={() => {
+                  setIsEditingAreaMode(false);
+                  if (placingAreaPolygon || isAreaMode) {
+                     setPlacingAreaPolygon(false);
+                     setDraftPolygonPoints([]);
+                     setIsAreaMode(false);
+                  } else {
+                    setPlacingAreaPolygon(true);
+                    setDraftPolygonPoints([]);
+                    setPlacingTestLocation(false);
+                    setIsRelocatingSweetSpot(false);
+                  }
+                }}
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all group relative ${
+                  (isAreaMode || placingAreaPolygon)
+                    ? 'bg-[#4778A5] text-white shadow-sm font-bold' 
+                    : 'text-slate-400 hover:text-slate-800 hover:bg-slate-50'
+                }`}
+                title="Välj område"
+              >
+                <Hexagon className={`w-4 h-4 ${placingAreaPolygon ? 'animate-pulse' : ''}`} />
+              </button>
 
               {/* Relocate Everything Button */}
               <button 
@@ -1711,19 +1690,17 @@ export default function App() {
                   setIsRelocatingSweetSpot(!isRelocatingSweetSpot);
                   setPlacingTestLocation(false);
                 }}
-                className={`p-2 rounded-xl transition-all group relative ${
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all group relative ${
                   isRelocatingSweetSpot 
-                    ? 'bg-[#6366f1] text-white shadow-lg ring-2 ring-indigo-100' 
-                    : 'text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm'
+                    ? 'bg-indigo-600 text-white shadow-sm font-bold' 
+                    : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-50'
                 }`}
                 title="Flytta allt"
               >
-                <Move className={`w-5 h-5 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
+                <Move className={`w-4 h-4 ${isRelocatingSweetSpot ? 'animate-pulse' : ''}`} />
               </button>
             </div>
           </div>
-        </div>
-      </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           {/* Scenario Selection */}
@@ -2620,7 +2597,6 @@ export default function App() {
                           const pos = e.target.getLatLng();
                           newPoly[idx] = [pos.lat, pos.lng];
                           setTestPolygon(newPoly);
-                          snapSourcePointsToPolygon(newPoly);
                         }
                       }}
                       icon={L.divIcon({
@@ -2640,7 +2616,6 @@ export default function App() {
                               }
                               const newPoly = testPolygon.filter((_, i) => i !== idx);
                               setTestPolygon(newPoly);
-                              snapSourcePointsToPolygon(newPoly);
                             }}
                             className="px-2 py-1 bg-red-500 hover:bg-red-600 font-bold text-white text-[9px] rounded transition"
                           >
@@ -2670,7 +2645,6 @@ export default function App() {
                             // Insert the midpoint between idx and idx + 1
                             newPoly.splice(idx + 1, 0, midpoint);
                             setTestPolygon(newPoly);
-                            snapSourcePointsToPolygon(newPoly);
                           }
                         }}
                         icon={L.divIcon({
@@ -2717,11 +2691,7 @@ export default function App() {
                     weight: 1.5,
                     fillOpacity: 1
                   }}
-                >
-                  <Tooltip permanent direction="top" offset={[0, -6]}>
-                    <span className="text-[10px] font-black text-rose-600 px-0.5">{index + 1}</span>
-                  </Tooltip>
-                </CircleMarker>
+                />
               ))}
             </>
           )}
@@ -2797,11 +2767,7 @@ export default function App() {
                     iconSize: [24, 24],
                     iconAnchor: [12, 24]
                   })}
-                >
-                  <Tooltip permanent direction="top" offset={[0, -22]} className="!bg-slate-900/90 !border-none !text-white !p-1 !px-2 !rounded !text-[10px] !font-bold !shadow-md">
-                    <span>Anslutning: {data.name}</span>
-                  </Tooltip>
-                </Marker>
+                />
               );
             })
           )}
@@ -2887,31 +2853,27 @@ export default function App() {
               animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: -25, y: -15, scale: 0.95 }}
               transition={{ type: 'spring', damping: 20, stiffness: 150 }}
-              className="absolute top-6 left-6 z-[1010] bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col pointer-events-auto p-4"
+              className="absolute top-6 left-6 z-[1010] bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/80 shadow-[0_12px_30px_rgba(0,0,0,0.12)] flex flex-col pointer-events-auto p-2.5 px-3"
               style={{
-                width: `${320 * uiScale}px`,
+                width: `${290 * uiScale}px`,
                 transform: `scale(${uiScale})`,
                 transformOrigin: 'top left'
               }}
             >
               {placingAreaPolygon ? (
                 // DRAWING MODE INSIDE FLOATING BANNER
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-                    <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center border border-rose-100">
-                      <Hexagon className="w-4.5 h-4.5 text-rose-600 animate-pulse" />
+                <div className="flex items-center justify-between gap-2.5 min-h-[32px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded bg-rose-50 flex items-center justify-center border border-rose-100 shrink-0">
+                      <Hexagon className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
                     </div>
-                    <div>
-                      <h3 className="text-[10px] font-black text-rose-700 uppercase tracking-wider leading-none">Ritar område...</h3>
-                      <p className="text-[8.5px] font-mono text-slate-400 mt-1">{draftPolygonPoints.length} hörn placerade</p>
+                    <div className="min-w-0 leading-none">
+                      <h3 className="text-[10px] font-black text-rose-700 uppercase tracking-wider block">Ritar område</h3>
+                      <span className="text-[8px] font-mono text-slate-400 mt-0.5 block">{draftPolygonPoints.length} hörn placerade</span>
                     </div>
                   </div>
                   
-                  <p className="text-[10.5px] text-slate-600 leading-normal font-medium">
-                    Klicka på kartan för att rita ett område.
-                  </p>
-
-                  <div className="flex items-center gap-2 pt-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => {
                         if (draftPolygonPoints.length >= 3) {
@@ -2938,35 +2900,54 @@ export default function App() {
                         }
                       }}
                       disabled={draftPolygonPoints.length < 3}
-                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-250 disabled:text-slate-400 text-white font-black text-[10px] rounded-xl transition flex items-center gap-1.5 shadow-sm disabled:shadow-none"
+                      className="px-2 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-[9.5px] rounded-lg transition flex items-center gap-1.5 shadow-sm disabled:shadow-none"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Spara område</span>
+                      <Check className="w-3 h-3" />
+                      <span>Spara</span>
                     </button>
                     <button
                       onClick={() => {
                         setPlacingAreaPolygon(false);
                         setDraftPolygonPoints([]);
                       }}
-                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-xl transition border border-slate-200/50"
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-[9.5px] rounded-lg transition"
+                      title="Avbryt"
                     >
-                      Avbryt
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
               ) : (
                 // ACTIVE AREA MODE INSIDE FLOATING BANNER
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
-                        <Hexagon className="w-4.5 h-4.5 text-indigo-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-wider leading-none">Aktivt område</h3>
-                        <p className="text-[8.5px] font-mono text-slate-400 mt-1">{testPolygon.length} hörn etablerade</p>
-                      </div>
+                <div className="flex items-center justify-between gap-2.5 min-h-[32px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center border border-indigo-100 shrink-0">
+                      <Hexagon className="w-3.5 h-3.5 text-indigo-600" />
                     </div>
+                    <div className="min-w-0 leading-none">
+                      <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-wider block font-sans">Aktivt område</h3>
+                      <span className="text-[8px] font-mono text-slate-400 mt-0.5 block">{testPolygon.length} hörn</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isEditingAreaMode ? (
+                      <button
+                        onClick={() => setIsEditingAreaMode(false)}
+                        className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9.5px] rounded-lg transition flex items-center gap-1 shadow-sm"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Klar</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setIsEditingAreaMode(true)}
+                        className="px-2.5 py-1.5 bg-white border border-slate-250 hover:bg-slate-50 text-slate-755 font-bold text-[9.5px] rounded-lg transition flex items-center gap-1 shadow-sm"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Editera</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => {
@@ -2982,41 +2963,11 @@ export default function App() {
                           return next;
                         });
                       }}
-                      className="w-7 h-7 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-250/50 flex items-center justify-center transition-colors shadow-none"
+                      className="p-1.5 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-250 flex items-center justify-center transition-colors shadow-none"
                       title="Ta bort område"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  </div>
-
-                  {isEditingAreaMode ? (
-                    <p className="text-[10.5px] text-slate-600 leading-normal font-medium bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/40">
-                      Flytta hörnmarkörerna för att ändra form. Lägg till nya hörn eller ta bort befintliga.
-                    </p>
-                  ) : (
-                    <p className="text-[10.5px] text-slate-600 leading-normal font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      Flytta anslutningspunkterna för källorna.
-                    </p>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-2 pt-1 select-none">
-                    {isEditingAreaMode ? (
-                      <button
-                        onClick={() => setIsEditingAreaMode(false)}
-                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Klar med editering</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setIsEditingAreaMode(true)}
-                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Editera område</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
