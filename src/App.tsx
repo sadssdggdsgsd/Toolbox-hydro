@@ -1614,7 +1614,7 @@ export default function App() {
         }}
       >
         <div className="flex flex-col w-[320px] shrink-0" style={{ height: `${100 / uiScale}%`, transform: `scale(${uiScale})`, transformOrigin: 'top left' }}>
-          <div className="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between shrink-0 gap-1">
+          <div className="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between shrink-0 gap-3">
             <h1 className="text-[18px] tracking-tighter text-slate-900 select-none shrink-0 min-w-0 leading-none">
               <span className="font-sans font-black text-slate-950">SWEETSPOT</span>
               <span className="font-sans font-light text-slate-500 ml-0.5">FINDER</span>
